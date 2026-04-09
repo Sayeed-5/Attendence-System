@@ -13,11 +13,30 @@ import {
 export default function QRDisplay({ session, attendanceCount, onEnd }) {
     const [currentSession, setCurrentSession] = useState(session);
     const [copied, setCopied] = useState(false);
+    const [elapsedTime, setElapsedTime] = useState("");
 
     useEffect(() => {
-        // Sync with props if session changes from parent
         setCurrentSession(session);
     }, [session]);
+
+    // Timer effect
+    useEffect(() => {
+        if (!session.startTime) return;
+
+        const updateTimer = () => {
+            const start = new Date(session.startTime).getTime();
+            const now = new Date().getTime();
+            const diffInSeconds = Math.floor((now - start) / 1000);
+
+            const m = Math.floor(diffInSeconds / 60).toString().padStart(2, "0");
+            const s = (diffInSeconds % 60).toString().padStart(2, "0");
+            setElapsedTime(`${m}:${s}`);
+        };
+
+        updateTimer();
+        const timerInterval = setInterval(updateTimer, 1000);
+        return () => clearInterval(timerInterval);
+    }, [session.startTime]);
 
     useEffect(() => {
         const refreshQr = async () => {
@@ -51,7 +70,7 @@ export default function QRDisplay({ session, attendanceCount, onEnd }) {
                     <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
                     <div className="flex items-center gap-1 text-[#64748b] text-sm">
                         <span className="font-mono font-medium text-[#10b981]">
-                            Live
+                            Live {elapsedTime}
                         </span>
                     </div>
                 </div>
