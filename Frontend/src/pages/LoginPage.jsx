@@ -60,44 +60,44 @@ export default function LoginPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-900">
-                <SpinnerGap size={48} className="animate-spin text-white" />
+            <div className="min-h-screen flex items-center justify-center bg-[#060b18]">
+                <SpinnerGap size={48} className="animate-spin text-[#14b8a6]" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-900 p-4">
+        <div className="min-h-screen flex items-center justify-center bg-[#060b18] p-4">
             {/* Decorative background shapes */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-purple-500/10 blur-3xl" />
-                <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-indigo-500/10 blur-3xl" />
+                <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-[#14b8a6]/8 blur-3xl" />
+                <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-[#14b8a6]/5 blur-3xl" />
             </div>
 
             <div className="relative w-full max-w-md">
                 {/* Logo / Header */}
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-sm mb-4 border border-white/20">
-                        <GraduationCap size={36} weight="duotone" className="text-purple-300" />
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#0f1629] mb-4 border border-[#1a2744] shadow-lg shadow-black/10">
+                        <GraduationCap size={36} weight="duotone" className="text-[#14b8a6]" />
                     </div>
-                    <h1 className="text-3xl font-bold text-white tracking-tight">
+                    <h1 className="text-3xl font-bold text-[#e2e8f0] tracking-tight">
                         AttendEase
                     </h1>
-                    <p className="text-purple-300/80 mt-2 text-sm">
+                    <p className="text-[#64748b] mt-2 text-sm">
                         Smart attendance for modern classrooms
                     </p>
                 </div>
 
                 {/* Card */}
-                <div className="bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 p-8 shadow-2xl">
+                <div className="bg-[#0f1629] rounded-2xl border border-[#1a2744] p-6 sm:p-8 shadow-xl shadow-black/10">
 
                     {/* Tabs */}
-                    <div className="grid grid-cols-2 gap-2 mb-8 bg-white/5 p-1 rounded-2xl border border-white/10">
+                    <div className="grid grid-cols-2 gap-2 mb-8 bg-[#060b18] p-1.5 rounded-xl border border-[#1a2744]">
                         <button
                             onClick={() => setActiveTab("student")}
-                            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl transition-all duration-200 cursor-pointer ${activeTab === "student"
-                                ? "bg-purple-500/40 text-white shadow-lg shadow-purple-500/10"
-                                : "text-white/50 hover:text-white hover:bg-white/5"
+                            className={`flex items-center justify-center gap-2 py-2.5 rounded-lg transition-all duration-200 cursor-pointer ${activeTab === "student"
+                                ? "bg-[#14b8a6]/25 text-white shadow-sm"
+                                : "text-[#64748b] hover:text-[#e2e8f0] hover:bg-[#1a2744]/40"
                                 }`}
                         >
                             <GraduationCap size={20} weight={activeTab === "student" ? "fill" : "duotone"} />
@@ -106,9 +106,9 @@ export default function LoginPage() {
 
                         <button
                             onClick={() => setActiveTab("teacher")}
-                            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl transition-all duration-200 cursor-pointer ${activeTab === "teacher"
-                                ? "bg-purple-500/40 text-white shadow-lg shadow-purple-500/10"
-                                : "text-white/50 hover:text-white hover:bg-white/5"
+                            className={`flex items-center justify-center gap-2 py-2.5 rounded-lg transition-all duration-200 cursor-pointer ${activeTab === "teacher"
+                                ? "bg-[#14b8a6]/25 text-white shadow-sm"
+                                : "text-[#64748b] hover:text-[#e2e8f0] hover:bg-[#1a2744]/40"
                                 }`}
                         >
                             <ChalkboardTeacher size={20} weight={activeTab === "teacher" ? "fill" : "duotone"} />
@@ -120,13 +120,13 @@ export default function LoginPage() {
                         /* Student Login Content */
                         <div className="space-y-6">
                             <div className="text-center mb-6">
-                                <h2 className="text-white font-semibold text-lg">Student Login</h2>
-                                <p className="text-white/50 text-xs mt-1">Use your college email</p>
+                                <h2 className="text-[#e2e8f0] font-semibold text-lg">Student Login</h2>
+                                <p className="text-[#64748b] text-xs mt-1">Use your college email</p>
                             </div>
                             <button
                                 onClick={handleStudentLogin}
                                 disabled={isLogging}
-                                className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-800 font-semibold py-3.5 px-6 rounded-2xl transition-all duration-200 shadow-lg hover:shadow-xl active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                                className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-800 font-semibold py-3.5 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                             >
                                 {isLogging ? (
                                     <SpinnerGap size={22} className="animate-spin" />
@@ -140,8 +140,8 @@ export default function LoginPage() {
                         /* Teacher Login Content */
                         <div className="space-y-4">
                             <div className="text-center mb-4">
-                                <h2 className="text-white font-semibold text-lg">Teacher Login</h2>
-                                <p className="text-white/50 text-xs mt-1">Provided by Administration</p>
+                                <h2 className="text-[#e2e8f0] font-semibold text-lg">Teacher Login</h2>
+                                <p className="text-[#64748b] text-xs mt-1">Provided by Administration</p>
                             </div>
 
                             <form onSubmit={handleTeacherLogin} className="space-y-4">
@@ -152,7 +152,7 @@ export default function LoginPage() {
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         placeholder="Teacher Email"
-                                        className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-purple-400 focus:bg-white/20 transition"
+                                        className="w-full bg-[#060b18] border border-[#1a2744] rounded-xl px-4 py-3 text-[#e2e8f0] text-sm placeholder:text-[#64748b]/50 focus:outline-none focus:border-[#14b8a6] transition-colors duration-200"
                                     />
                                 </div>
                                 <div>
@@ -162,13 +162,13 @@ export default function LoginPage() {
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         placeholder="Password"
-                                        className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-purple-400 focus:bg-white/20 transition"
+                                        className="w-full bg-[#060b18] border border-[#1a2744] rounded-xl px-4 py-3 text-[#e2e8f0] text-sm placeholder:text-[#64748b]/50 focus:outline-none focus:border-[#14b8a6] transition-colors duration-200"
                                     />
                                 </div>
                                 <button
                                     type="submit"
                                     disabled={isLogging}
-                                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold py-3.5 rounded-xl transition duration-200 shadow-lg shadow-purple-500/20 active:scale-[0.98] disabled:opacity-60 cursor-pointer mt-2"
+                                    className="w-full flex items-center justify-center gap-2 bg-[#14b8a6] hover:bg-[#14b8a6]/90 text-white font-semibold py-3.5 rounded-xl transition-all duration-200 shadow-lg shadow-teal-500/20 active:scale-[0.98] disabled:opacity-60 cursor-pointer mt-2"
                                 >
                                     {isLogging ? <SpinnerGap size={20} className="animate-spin" /> : "Sign In Securely"}
                                 </button>

@@ -7,8 +7,8 @@ export default function ProtectedRoute({ children, allowedRole }) {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900">
-                <SpinnerGap size={40} className="animate-spin text-purple-400" />
+            <div className="min-h-screen flex items-center justify-center bg-[#0f172a]">
+                <SpinnerGap size={40} className="animate-spin text-[#6366f1]" />
             </div>
         );
     }

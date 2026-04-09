@@ -107,16 +107,16 @@ export default function QRScanner({ onScan, onClose }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col">
+        <div className="fixed inset-0 z-50 bg-[#060b18]/95 flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between p-4">
-                <h3 className="text-white font-semibold">Scan QR Code</h3>
+                <h3 className="text-[#e2e8f0] font-semibold">Scan QR Code</h3>
                 <button
                     onClick={() => {
                         stopCamera();
                         onClose();
                     }}
-                    className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white cursor-pointer"
+                    className="w-10 h-10 flex items-center justify-center rounded-full bg-[#0f1629] text-[#e2e8f0] hover:bg-[#1a2744] transition-colors duration-200 cursor-pointer"
                 >
                     <X size={20} />
                 </button>
@@ -133,13 +133,13 @@ export default function QRScanner({ onScan, onClose }) {
                     />
                     {/* Scan overlay */}
                     <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-64 h-64 border-2 border-white/50 rounded-2xl relative">
-                            <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-purple-400 rounded-tl-xl" />
-                            <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-purple-400 rounded-tr-xl" />
-                            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-purple-400 rounded-bl-xl" />
-                            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-purple-400 rounded-br-xl" />
+                        <div className="w-64 h-64 border-2 border-[#64748b]/30 rounded-2xl relative">
+                            <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-[#14b8a6] rounded-tl-xl" />
+                            <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-[#14b8a6] rounded-tr-xl" />
+                            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-[#14b8a6] rounded-bl-xl" />
+                            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-[#14b8a6] rounded-br-xl" />
                             {/* Scanning line animation */}
-                            <div className="absolute left-2 right-2 h-0.5 bg-gradient-to-r from-transparent via-purple-400 to-transparent animate-bounce" />
+                            <div className="absolute left-2 right-2 h-0.5 bg-gradient-to-r from-transparent via-[#14b8a6] to-transparent animate-bounce" />
                         </div>
                     </div>
                     <canvas ref={canvasRef} className="hidden" />
@@ -155,7 +155,7 @@ export default function QRScanner({ onScan, onClose }) {
                 {!showManual && (
                     <button
                         onClick={() => setShowManual(true)}
-                        className="w-full flex items-center justify-center gap-2 bg-white/10 text-white py-3 rounded-xl text-sm font-medium cursor-pointer"
+                        className="w-full flex items-center justify-center gap-2 bg-[#0f1629] border border-[#1a2744] text-[#e2e8f0] py-3 rounded-xl text-sm font-medium hover:bg-[#1a2744] transition-colors duration-200 cursor-pointer"
                     >
                         <Keyboard size={18} />
                         Enter code manually
@@ -172,12 +172,12 @@ export default function QRScanner({ onScan, onClose }) {
                             value={manualCode}
                             onChange={(e) => setManualCode(e.target.value)}
                             placeholder="Enter session code"
-                            className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-sm uppercase tracking-wider placeholder:text-white/30 focus:outline-none focus:border-purple-400"
+                            className="flex-1 bg-[#0f1629] border border-[#1a2744] rounded-xl px-4 py-3 text-[#e2e8f0] text-sm uppercase tracking-wider placeholder:text-[#64748b]/50 focus:outline-none focus:border-[#14b8a6] transition-colors duration-200"
                             autoFocus
                         />
                         <button
                             type="submit"
-                            className="bg-purple-600 text-white px-6 py-3 rounded-xl font-semibold text-sm cursor-pointer"
+                            className="bg-[#14b8a6] hover:bg-[#14b8a6]/90 text-white px-6 py-3 rounded-xl font-semibold text-sm transition-colors duration-200 cursor-pointer"
                         >
                             Go
                         </button>

@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 /* Base body styles */
@@ -7,8 +8,8 @@ body {
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #0f0a2e;
-  color: #ffffff;
+  background: #060b18;
+  color: #e2e8f0;
 }
 
 /* Scrollbar styling */
@@ -21,13 +22,13 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.3);
+  background: rgba(20, 184, 166, 0.3);
   border-radius: 4px;
 }
 
 /* Selection */
 ::selection {
-  background: rgba(139, 92, 246, 0.4);
+  background: rgba(20, 184, 166, 0.4);
   color: #ffffff;
 }
 
@@ -38,16 +39,17 @@ body {
 
 /* Input autofill styling */
 input:-webkit-autofill {
-  -webkit-box-shadow: 0 0 0 100px #1e1b4b inset !important;
-  -webkit-text-fill-color: #e0e7ff !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
+  -webkit-box-shadow: 0 0 0 100px #0f1629 inset !important;
+  -webkit-text-fill-color: #e2e8f0 !important;
+  border-color: #1a2744 !important;
 }
 
 /* Range input custom styling */
 input[type="range"] {
   -webkit-appearance: none;
+  appearance: none;
   height: 6px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(26, 39, 68, 0.6);
   border-radius: 999px;
   outline: none;
 }
@@ -56,18 +58,20 @@ input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 20px;
   height: 20px;
-  background: #8b5cf6;
+  background: #14b8a6;
   border-radius: 50%;
   cursor: pointer;
-  box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
+  box-shadow: 0 0 10px rgba(20, 184, 166, 0.4);
 }
 
 /* Pulse animation for live indicator */
 @keyframes pulse-dot {
+
   0%,
   100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.4;
   }

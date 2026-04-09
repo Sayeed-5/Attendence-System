@@ -217,7 +217,49 @@ router.get("/student/stats", verifyToken, async (req, res) => {
 
     const percentage = totalSessions === 0 ? 0 : Math.round((attendedSessions / totalSessions) * 100);
 
-    res.json({ totalSessions, attendedSessions, percentage });
+    // Calculate streak — consecutive sessions attended (most recent first)
+    const allSessions = await Session.find({}).sort({ startTime: -1 }).lean();
+    const studentAttendance = await Attendance.find({
+      studentId: student._id,
+      status: { $in: ["present", "flagged"] }
+    }).lean();
+
+    const attendedSessionIds = new Set(studentAttendance.map(a => a.sessionId.toString()));
+
+    let streak = 0;
+    for (const session of allSessions) {
+      if (attendedSessionIds.has(session._id.toString())) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+
+    // Check if student attended today
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const todayAttendance = await Attendance.findOne({
+      studentId: student._id,
+      timestamp: { $gte: todayStart, $lte: todayEnd },
+      status: { $in: ["present", "flagged"] }
+    }).lean();
+
+    const checkedInToday = !!todayAttendance;
+
+    // Find active sessions right now
+    const activeSessions = await Session.find({ isActive: true }).lean();
+
+    res.json({ 
+      totalSessions, 
+      attendedSessions, 
+      percentage, 
+      streak,
+      checkedInToday,
+      activeSessionCount: activeSessions.length
+    });
   } catch (err) {
     res.status(500).json({ msg: "Server error" });
   }
