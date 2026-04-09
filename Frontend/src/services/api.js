@@ -2,7 +2,7 @@ import axios from "axios";
 import { auth } from "../config/firebase";
 
 const api = axios.create({
-  baseURL: "/api",
+  baseURL: import.meta.env.VITE_API_URL || "https://attendence-system-backend-j9h5.onrender.com/api",
   timeout: 15000, // 15s timeout for mobile data
   headers: {
     "Content-Type": "application/json",
