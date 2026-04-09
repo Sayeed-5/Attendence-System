@@ -10,7 +10,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg"],
+      includeAssets: ["favicon.svg", "image.png"],
       manifest: {
         name: "Attendance System",
         short_name: "Attendance",
@@ -21,15 +21,15 @@ export default defineConfig({
         start_url: "/",
         icons: [
           {
-            src: "/favicon.svg",
+            src: "/image.png",
             sizes: "192x192 512x512",
-            type: "image/svg+xml",
+            type: "image/png",
             purpose: "any maskable",
           },
           {
-            src: "/favicon.svg",
+            src: "/image.png",
             sizes: "512x512",
-            type: "image/svg+xml",
+            type: "image/png",
             purpose: "any maskable",
           }
         ],
