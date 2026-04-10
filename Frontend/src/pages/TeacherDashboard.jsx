@@ -1,59 +1,70 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
-import Navbar from "../components/Navbar";
 import QRDisplay from "../components/QRDisplay";
 import toast from "react-hot-toast";
 import {
-    Plus,
-    ClockCountdown,
-    MapPin,
-    Users,
-    CaretRight,
-    CaretLeft,
-    SpinnerGap,
-    CheckCircle,
-    XCircle,
-    Warning,
-    User,
-    Phone,
-    BookBookmark,
-    IdentificationCard,
+    ArrowLeft,
     ChartBar,
+    CheckCircle,
+    ClockCountdown,
+    Export,
+    GearSix,
     House,
+    IdentificationCard,
+    MapPin,
+    Phone,
+    Plus,
+    SignOut,
+    SpinnerGap,
+    User,
+    Users,
+    Warning,
+    XCircle,
+    BookBookmark,
 } from "@phosphor-icons/react";
 
+function formatDateTime(value) {
+    if (!value) return "Time unavailable";
+    return new Date(value).toLocaleString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+}
+
 export default function TeacherDashboard() {
-    const { user, updateProfile } = useAuth();
+    const { user, updateProfile, logout } = useAuth();
     const navigate = useNavigate();
 
     const [activeTab, setActiveTab] = useState("home");
     const [stats, setStats] = useState(null);
-
     const [sessions, setSessions] = useState([]);
     const [loadingSessions, setLoadingSessions] = useState(true);
     const [showCreate, setShowCreate] = useState(false);
     const [activeSession, setActiveSession] = useState(null);
     const [attendanceCount, setAttendanceCount] = useState(null);
-
-    // Session detail state
     const [selectedSession, setSelectedSession] = useState(null);
     const [sessionRecords, setSessionRecords] = useState([]);
     const [loadingRecords, setLoadingRecords] = useState(false);
-
-    // Create form state
     const [subject, setSubject] = useState("");
     const [creating, setCreating] = useState(false);
-
-    // Profile form state
     const [name, setName] = useState(user?.name || "");
     const [dept, setDept] = useState(user?.dept || "");
     const [profileSubject, setProfileSubject] = useState(user?.subject || "");
     const [mobileNo, setMobileNo] = useState(user?.mobileNo || "");
-
     const isProfileComplete = user && user.dept && user.subject && user.mobileNo;
     const [isEditingProfile, setIsEditingProfile] = useState(!isProfileComplete);
+
+    useEffect(() => {
+        setName(user?.name || "");
+        setDept(user?.dept || "");
+        setProfileSubject(user?.subject || "");
+        setMobileNo(user?.mobileNo || "");
+    }, [user]);
 
     useEffect(() => {
         if (!isProfileComplete) {
@@ -62,32 +73,8 @@ export default function TeacherDashboard() {
         }
         fetchSessions();
         fetchStats();
-    }, [user]);
+    }, [user, isProfileComplete]);
 
-    const fetchStats = async () => {
-        try {
-            const res = await api.get("/attendance/teacher/stats");
-            setStats(res.data);
-        } catch (err) {
-            console.error("Stats fetch failed:", err);
-        }
-    };
-
-    const fetchSessionDetail = async (session) => {
-        setSelectedSession(session);
-        setLoadingRecords(true);
-        try {
-            const res = await api.get(`/attendance/session/${session._id}`);
-            setSessionRecords(res.data);
-        } catch (err) {
-            console.error("Session detail fetch failed:", err);
-            setSessionRecords([]);
-        } finally {
-            setLoadingRecords(false);
-        }
-    };
-
-    // Poll attendance count for active session
     useEffect(() => {
         if (!activeSession || !activeSession.isActive) return;
 
@@ -105,16 +92,46 @@ export default function TeacherDashboard() {
         return () => clearInterval(interval);
     }, [activeSession]);
 
+    const overviewStats = useMemo(() => {
+        const totalStudents = stats?.totalStudents || 0;
+        const presentToday = attendanceCount?.present ?? activeSession?.attendees ?? 0;
+        const absentToday = Math.max(totalStudents - presentToday, 0);
+        return { totalStudents, presentToday, absentToday };
+    }, [activeSession, attendanceCount, stats]);
+
+    const fetchStats = async () => {
+        try {
+            const res = await api.get("/attendance/teacher/stats");
+            setStats(res.data);
+        } catch (err) {
+            console.error("Stats fetch failed:", err);
+        }
+    };
+
     const fetchSessions = async () => {
         try {
             const res = await api.get("/session/teacher/sessions");
             setSessions(res.data);
-            const active = res.data.find((s) => s.isActive);
-            if (active) setActiveSession(active);
+            const active = res.data.find((session) => session.isActive);
+            setActiveSession(active || null);
         } catch (err) {
             console.error("Sessions fetch failed:", err);
         } finally {
             setLoadingSessions(false);
+        }
+    };
+
+    const fetchSessionDetail = async (session) => {
+        setSelectedSession(session);
+        setLoadingRecords(true);
+        try {
+            const res = await api.get(`/attendance/session/${session._id}`);
+            setSessionRecords(res.data);
+        } catch (err) {
+            console.error("Session detail fetch failed:", err);
+            setSessionRecords([]);
+        } finally {
+            setLoadingRecords(false);
         }
     };
 
@@ -128,6 +145,7 @@ export default function TeacherDashboard() {
             setShowCreate(false);
             setSubject("");
             fetchSessions();
+            fetchStats();
         } catch (err) {
             toast.error(err.response?.data?.msg || "Failed to create session");
         } finally {
@@ -143,6 +161,7 @@ export default function TeacherDashboard() {
             setActiveSession(null);
             setAttendanceCount(null);
             fetchSessions();
+            fetchStats();
         } catch (err) {
             toast.error("Failed to end session");
         }
@@ -159,529 +178,687 @@ export default function TeacherDashboard() {
         }
     };
 
-    return (
-        <div className="min-h-screen bg-[#060b18]">
-            <Navbar />
+    const handleLogout = async () => {
+        await logout();
+        navigate("/login", { replace: true });
+    };
 
-            <main className="max-w-lg mx-auto px-4 sm:px-6 pt-20 pb-24">
-                {/* Welcome */}
-                <div className="mb-6">
-                    <h1 className="text-2xl font-bold text-[#e2e8f0]">
-                        Hello, {user?.name?.split(" ")[0]} 👋
-                    </h1>
-                    <p className="text-[#64748b] text-sm mt-1">
-                        Manage your class attendance
-                    </p>
+    const exportCurrentSession = () => {
+        if (activeSession?._id) {
+            navigate(`/session/${activeSession._id}`);
+            return;
+        }
+
+        if (sessions[0]?._id) {
+            navigate(`/session/${sessions[0]._id}`);
+            return;
+        }
+
+        toast.error("No session available to export");
+    };
+
+    const openNewSession = () => {
+        setShowCreate(true);
+        setActiveTab("home");
+    };
+
+    const renderHomeTab = () => (
+        <div className="space-y-5 animate-fade-in">
+            <section className="rounded-[28px] border border-white/6 bg-[#171b24] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                        <h2 className="text-2xl font-semibold text-white">Overview</h2>
+                        <p className="mt-1 text-sm text-slate-400">
+                            Manage your active sessions and track student participation.
+                        </p>
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                        <button
+                            onClick={exportCurrentSession}
+                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#171b24] px-4 py-3 text-sm font-semibold text-white"
+                        >
+                            <Export size={18} />
+                            Export Report
+                        </button>
+                        <button
+                            onClick={openNewSession}
+                            disabled={!!activeSession?.isActive}
+                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#29d8ff] px-4 py-3 text-sm font-semibold text-[#04131f] shadow-[0_16px_34px_rgba(41,216,255,0.22)] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <Plus size={18} weight="bold" />
+                            New Session
+                        </button>
+                    </div>
                 </div>
 
-                {/* ========== HOME TAB ========== */}
-                {activeTab === "home" && (
-                    <>
-                        {/* Active Session / QR Display */}
-                        {activeSession && activeSession.isActive && (
-                            <div className="mb-6">
-                                <QRDisplay
-                                    session={activeSession}
-                                    attendanceCount={attendanceCount}
-                                    onEnd={handleEndSession}
-                                />
-                            </div>
-                        )}
+                <div className="mt-5 grid gap-3 md:grid-cols-3">
+                    <div className="rounded-[20px] border border-white/6 bg-[#1a1f29] p-4">
+                        <Users size={20} className="mb-3 text-[#33c3ff]" />
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Total Students</p>
+                        <p className="mt-1 text-3xl font-semibold text-white">{overviewStats.totalStudents}</p>
+                    </div>
+                    <div className="rounded-[20px] border border-white/6 bg-[#1a1f29] p-4">
+                        <CheckCircle size={20} className="mb-3 text-emerald-400" />
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Present Today</p>
+                        <p className="mt-1 text-3xl font-semibold text-white">{overviewStats.presentToday}</p>
+                    </div>
+                    <div className="rounded-[20px] border border-white/6 bg-[#1a1f29] p-4">
+                        <XCircle size={20} className="mb-3 text-rose-400" />
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Absent</p>
+                        <p className="mt-1 text-3xl font-semibold text-white">{overviewStats.absentToday}</p>
+                    </div>
+                </div>
+            </section>
 
-                        {/* Create Session Button */}
-                        {!activeSession?.isActive && !showCreate && (
+            {activeSession?.isActive && (
+                <section className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+                    <div className="rounded-[28px] border border-white/6 bg-[#171b24] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
+                        <div className="mb-4 flex items-center justify-between">
+                            <div>
+                                <h3 className="text-lg font-semibold text-white">{activeSession.subject}</h3>
+                                <p className="mt-1 text-xs text-slate-500">
+                                    {formatDateTime(activeSession.startTime || activeSession.createdAt)}
+                                </p>
+                            </div>
+                            <span className="rounded-full bg-emerald-500/12 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-300">
+                                Session Active
+                            </span>
+                        </div>
+                        <QRDisplay session={activeSession} attendanceCount={attendanceCount} onEnd={handleEndSession} />
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="rounded-[24px] border border-indigo-400/12 bg-[linear-gradient(180deg,rgba(29,37,76,0.95),rgba(22,24,45,0.95))] p-4">
+                            <p className="text-sm font-semibold text-white">Pending Requests</p>
+                            <p className="mt-1 text-xs text-slate-400">
+                                Manual attendance reviews for missed QR scans can be handled from session detail.
+                            </p>
+                            <button
+                                onClick={() => navigate(`/session/${activeSession._id}`)}
+                                className="mt-4 w-full rounded-2xl bg-[#121722] px-4 py-3 text-sm font-semibold text-white"
+                            >
+                                Review Requests
+                            </button>
+                        </div>
+
+                        <div className="rounded-[24px] border border-cyan-400/12 bg-[linear-gradient(180deg,rgba(6,96,106,0.95),rgba(8,71,80,0.95))] p-4">
+                            <p className="text-sm font-semibold text-white">Class Insights</p>
+                            <p className="mt-1 text-xs text-cyan-50/70">
+                                Overall attendance for this class is {stats?.overallAvgPercentage ?? 0}% across recent sessions.
+                            </p>
+                            <button
+                                onClick={() => setActiveTab("analytics")}
+                                className="mt-4 w-full rounded-2xl bg-[#121722] px-4 py-3 text-sm font-semibold text-white"
+                            >
+                                View Analytics
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            )}
+
+            {!activeSession?.isActive && (
+                <section className="rounded-[28px] border border-dashed border-[#2bd3ff]/25 bg-[linear-gradient(180deg,rgba(20,26,39,0.98),rgba(15,19,30,0.98))] p-5 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
+                    {!showCreate ? (
+                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                            <div>
+                                <p className="text-lg font-semibold text-white">Create a new attendance session</p>
+                                <p className="mt-1 text-sm text-slate-400">
+                                    Start a live QR-based session for your current class without changing the backend flow.
+                                </p>
+                            </div>
                             <button
                                 onClick={() => setShowCreate(true)}
-                                className="w-full flex items-center justify-center gap-3 bg-[#14b8a6] hover:bg-[#14b8a6]/90 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg shadow-teal-500/20 hover:shadow-xl active:scale-[0.98] mb-6 cursor-pointer"
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#29d8ff] px-5 py-3 text-sm font-semibold text-[#04131f] shadow-[0_16px_34px_rgba(41,216,255,0.22)]"
                             >
-                                <Plus size={24} weight="bold" />
-                                <span className="text-lg">Create Attendance Session</span>
+                                <Plus size={18} weight="bold" />
+                                Create Session
                             </button>
-                        )}
-
-                        {/* Create Session Form */}
-                        {showCreate && (
-                            <div className="bg-[#0f1629] border border-[#1a2744] rounded-2xl p-5 mb-6 shadow-lg shadow-black/10">
-                                <h3 className="text-[#e2e8f0] font-semibold mb-4">New Session</h3>
-                                <form onSubmit={handleCreateSession} className="space-y-4">
-                                    <div>
-                                        <label className="text-[#64748b] text-xs mb-1.5 block">Subject</label>
-                                        <input
-                                            type="text"
-                                            value={subject}
-                                            onChange={(e) => setSubject(e.target.value)}
-                                            required
-                                            placeholder="e.g., Data Structures"
-                                            className="w-full bg-[#060b18] border border-[#1a2744] rounded-xl px-4 py-2.5 text-[#e2e8f0] text-sm placeholder:text-[#64748b]/50 focus:outline-none focus:border-[#14b8a6] transition-colors duration-200"
-                                        />
-                                    </div>
-                                    <div className="flex items-center gap-2 text-[#64748b] text-xs justify-center">
-                                        <MapPin size={14} />
-                                        College geofencing strict radius (50m) enabled
-                                    </div>
-                                    <div className="flex gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowCreate(false)}
-                                            className="flex-1 bg-[#060b18] border border-[#1a2744] hover:bg-[#1a2744] text-[#e2e8f0] py-2.5 rounded-xl transition-colors duration-200 text-sm font-medium cursor-pointer"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            disabled={creating}
-                                            className="flex-1 bg-[#14b8a6] hover:bg-[#14b8a6]/90 text-white py-2.5 rounded-xl transition-colors duration-200 text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
-                                        >
-                                            {creating ? (
-                                                <>
-                                                    <SpinnerGap size={16} className="animate-spin" />
-                                                    Creating...
-                                                </>
-                                            ) : (
-                                                "Start Session"
-                                            )}
-                                        </button>
-                                    </div>
-                                </form>
+                        </div>
+                    ) : (
+                        <form onSubmit={handleCreateSession} className="space-y-4">
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white">New Session</h3>
+                                    <p className="mt-1 text-sm text-slate-400">
+                                        Enter a subject name and the session will start instantly with a live QR.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowCreate(false);
+                                        setSubject("");
+                                    }}
+                                    className="text-xs font-semibold text-slate-400"
+                                >
+                                    Cancel
+                                </button>
                             </div>
-                        )}
 
-                        {/* Session History */}
-                        <div>
-                            <h2 className="text-[#e2e8f0] font-semibold mb-3 flex items-center gap-2">
-                                <ClockCountdown size={18} className="text-[#14b8a6]" />
-                                Session History
-                            </h2>
-                            {loadingSessions ? (
-                                <div className="text-center py-8">
-                                    <SpinnerGap size={24} className="animate-spin text-[#14b8a6] mx-auto" />
-                                </div>
-                            ) : sessions.length === 0 ? (
-                                <div className="text-center py-8 text-[#64748b] text-sm">
-                                    No sessions yet. Create your first one!
-                                </div>
-                            ) : (
-                                <div className="space-y-2">
-                                    {sessions.map((session) => (
+                            <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+                                <label className="block">
+                                    <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                        Subject
+                                    </span>
+                                    <input
+                                        type="text"
+                                        value={subject}
+                                        onChange={(e) => setSubject(e.target.value)}
+                                        required
+                                        placeholder="e.g., Advanced Physics"
+                                        className="w-full rounded-[18px] border border-white/8 bg-[#111722] px-4 py-3 text-sm text-white outline-none transition focus:border-[#29d8ff]"
+                                    />
+                                </label>
+
+                                <button
+                                    type="submit"
+                                    disabled={creating}
+                                    className="inline-flex items-center justify-center gap-2 rounded-[18px] bg-[#29d8ff] px-5 py-3 text-sm font-semibold text-[#04131f] shadow-[0_16px_34px_rgba(41,216,255,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {creating ? <SpinnerGap size={18} className="animate-spin" /> : <Plus size={18} weight="bold" />}
+                                    {creating ? "Creating..." : "Start Session"}
+                                </button>
+                            </div>
+
+                            <div className="flex items-center gap-2 text-xs text-slate-500">
+                                <MapPin size={14} />
+                                College geofencing strict radius (50m) remains enabled.
+                            </div>
+                        </form>
+                    )}
+                </section>
+            )}
+
+            <section className="rounded-[28px] border border-white/6 bg-[#171b24] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
+                <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <h3 className="text-lg font-semibold text-white">
+                            {activeSession?.subject || sessions[0]?.subject || "Recent Sessions"}
+                        </h3>
+                        <p className="mt-1 text-sm text-slate-400">
+                            Review live and completed sessions without changing your current session flow.
+                        </p>
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                        <div className="rounded-2xl border border-white/8 bg-[#141925] px-4 py-3 text-sm text-slate-500">
+                            Search sessions by subject
+                        </div>
+                        <div className="rounded-2xl border border-white/8 bg-[#141925] px-4 py-3 text-sm text-slate-300">
+                            {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                        </div>
+                    </div>
+                </div>
+
+                {loadingSessions ? (
+                    <div className="flex justify-center py-10">
+                        <SpinnerGap size={24} className="animate-spin text-[#33c3ff]" />
+                    </div>
+                ) : sessions.length === 0 ? (
+                    <div className="rounded-[20px] border border-white/6 bg-[#141925] px-4 py-10 text-center text-sm text-slate-400">
+                        No sessions yet. Create your first one.
+                    </div>
+                ) : (
+                    <>
+                        <div className="hidden overflow-hidden rounded-[22px] border border-white/6 lg:block">
+                            <div className="grid grid-cols-[1.6fr_0.7fr_0.8fr_1.1fr] bg-[#1b202a] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                                <span>Session</span>
+                                <span>Status</span>
+                                <span>Time</span>
+                                <span>Actions</span>
+                            </div>
+                            {sessions.slice(0, 5).map((session) => (
+                                <div key={session._id} className="grid grid-cols-[1.6fr_0.7fr_0.8fr_1.1fr] items-center border-t border-white/6 bg-[#141925] px-4 py-4 text-sm">
+                                    <div>
+                                        <p className="font-semibold text-white">{session.subject}</p>
+                                        <p className="mt-1 text-[11px] text-slate-500">{session.attendees ?? 0} students checked in</p>
+                                    </div>
+                                    <span className={`w-fit rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${session.isActive ? "bg-emerald-500/14 text-emerald-300" : "bg-white/6 text-slate-400"}`}>
+                                        {session.isActive ? "Live" : "Ended"}
+                                    </span>
+                                    <span className="text-slate-400">{new Date(session.startTime || session.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
+                                    <div className="flex gap-2">
                                         <button
-                                            key={session._id}
                                             onClick={() => navigate(`/session/${session._id}`)}
-                                            className="w-full bg-[#0f1629]/60 border border-[#1a2744] rounded-xl p-4 flex items-center justify-between hover:bg-[#0f1629] transition-colors duration-200 cursor-pointer text-left"
+                                            className="rounded-xl border border-white/8 bg-[#121722] px-3 py-2 text-xs font-semibold text-white"
                                         >
-                                            <div>
-                                                <p className="text-[#e2e8f0] text-sm font-medium">{session.subject}</p>
-                                                <p className="text-[#64748b] text-xs mt-0.5 flex items-center gap-2">
-                                                    <ClockCountdown size={12} />
-                                                    {new Date(session.startTime).toLocaleDateString("en-IN", {
-                                                        day: "numeric",
-                                                        month: "short",
-                                                        hour: "2-digit",
-                                                        minute: "2-digit",
-                                                    })}
-                                                </p>
-                                            </div>
-                                            <div className="flex flex-col items-end gap-1.5">
-                                                <span
-                                                    className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full ${session.isActive
-                                                        ? "bg-emerald-500/15 text-[#10b981]"
-                                                        : "bg-[#1a2744]/50 text-[#64748b]"
-                                                        }`}
-                                                >
-                                                    {session.isActive && (
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse" />
-                                                    )}
-                                                    {session.isActive ? "Live" : "Ended"}
-                                                </span>
-                                                {session.attendees !== undefined && (
-                                                    <span className="text-[11px] text-[#14b8a6] flex items-center gap-1">
-                                                        <Users size={11} />
-                                                        {session.attendees} present
-                                                    </span>
-                                                )}
-                                            </div>
+                                            Open
                                         </button>
-                                    ))}
+                                        <button
+                                            onClick={() => fetchSessionDetail(session)}
+                                            className="rounded-xl border border-cyan-400/20 bg-cyan-400/8 px-3 py-2 text-xs font-semibold text-cyan-200"
+                                        >
+                                            Inspect
+                                        </button>
+                                    </div>
                                 </div>
-                            )}
+                            ))}
+                        </div>
+
+                        <div className="space-y-3 lg:hidden">
+                            {sessions.slice(0, 5).map((session) => (
+                                <div key={session._id} className="rounded-[22px] border border-white/6 bg-[#141925] px-4 py-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <p className="text-sm font-semibold text-white">{session.subject}</p>
+                                            <p className="mt-1 text-[11px] text-slate-500">{formatDateTime(session.startTime || session.createdAt)}</p>
+                                        </div>
+                                        <span className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${session.isActive ? "bg-emerald-500/14 text-emerald-300" : "bg-white/6 text-slate-400"}`}>
+                                            {session.isActive ? "Live" : "Ended"}
+                                        </span>
+                                    </div>
+                                    <div className="mt-4 flex items-center justify-between">
+                                        <p className="text-[11px] text-slate-500">{session.attendees ?? 0} present</p>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => navigate(`/session/${session._id}`)}
+                                                className="rounded-xl border border-white/8 bg-[#121722] px-3 py-2 text-[11px] font-semibold text-white"
+                                            >
+                                                Open
+                                            </button>
+                                            <button
+                                                onClick={() => fetchSessionDetail(session)}
+                                                className="rounded-xl border border-cyan-400/20 bg-cyan-400/8 px-3 py-2 text-[11px] font-semibold text-cyan-200"
+                                            >
+                                                Inspect
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </>
                 )}
+            </section>
+        </div>
+    );
 
-                {/* ========== ANALYTICS TAB ========== */}
-                {activeTab === "analytics" && (
-                    <>
-                        {/* Stat Cards */}
+    const renderAnalyticsTab = () => (
+        <div className="space-y-5 animate-fade-in">
+            {!selectedSession ? (
+                <>
+                    <section className="rounded-[28px] border border-white/6 bg-[#171b24] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
+                        <div className="mb-4 flex items-center justify-between">
+                            <div>
+                                <h2 className="text-xl font-semibold text-white">Analytics</h2>
+                                <p className="mt-1 text-sm text-slate-400">Attendance performance across your recent classes.</p>
+                            </div>
+                            <button
+                                onClick={fetchStats}
+                                className="rounded-2xl border border-white/8 bg-[#121722] px-4 py-2 text-sm font-semibold text-white"
+                            >
+                                Refresh
+                            </button>
+                        </div>
+
                         {stats ? (
-                            <div className="grid grid-cols-2 gap-3 mb-5">
-                                <div className="bg-[#0f1629] border border-[#1a2744] rounded-2xl p-4 flex flex-col justify-between shadow-lg shadow-black/5">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Users size={18} className="text-[#14b8a6]" />
-                                        <span className="text-[#64748b] text-xs">Total Students</span>
-                                    </div>
-                                    <span className="text-2xl font-bold text-[#e2e8f0]">{stats.totalStudents}</span>
+                            <div className="grid gap-3 md:grid-cols-2">
+                                <div className="rounded-[20px] border border-white/6 bg-[#1a1f29] p-4">
+                                    <Users size={20} className="mb-3 text-[#33c3ff]" />
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Total Students</p>
+                                    <p className="mt-1 text-3xl font-semibold text-white">{stats.totalStudents || 0}</p>
                                 </div>
-                                <div className="bg-[#0f1629] border border-[#1a2744] rounded-2xl p-4 flex flex-col justify-between shadow-lg shadow-black/5">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <ClockCountdown size={18} className="text-[#14b8a6]" />
-                                        <span className="text-[#64748b] text-xs">Total Sessions</span>
-                                    </div>
-                                    <span className="text-2xl font-bold text-[#e2e8f0]">{stats.totalSessions ?? sessions.length}</span>
+                                <div className="rounded-[20px] border border-white/6 bg-[#1a1f29] p-4">
+                                    <ClockCountdown size={20} className="mb-3 text-[#33c3ff]" />
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Total Sessions</p>
+                                    <p className="mt-1 text-3xl font-semibold text-white">{stats.totalSessions ?? sessions.length}</p>
                                 </div>
-                                <div className="col-span-2 bg-[#14b8a6]/10 border border-[#14b8a6]/20 rounded-2xl p-4 shadow-lg shadow-black/5">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <ChartBar size={18} className="text-[#10b981]" />
-                                        <span className="text-[#64748b] text-xs">Overall Avg Attendance</span>
+                                <div className="rounded-[22px] border border-emerald-400/15 bg-[linear-gradient(180deg,rgba(14,53,48,0.95),rgba(18,31,34,0.95))] p-4 md:col-span-2">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-100/70">
+                                                Overall Avg Attendance
+                                            </p>
+                                            <p className="mt-1 text-3xl font-semibold text-white">{stats.overallAvgPercentage || 0}%</p>
+                                        </div>
+                                        <ChartBar size={22} className="text-emerald-300" />
                                     </div>
-                                    <span className="text-2xl font-bold text-[#e2e8f0]">{stats.overallAvgPercentage}%</span>
-                                    <div className="w-full bg-[#1a2744] rounded-full h-1.5 mt-2">
+                                    <div className="mt-4 h-2 rounded-full bg-white/8">
                                         <div
-                                            className="bg-[#10b981] h-1.5 rounded-full transition-all duration-500"
-                                            style={{ width: `${Math.min(stats.overallAvgPercentage, 100)}%` }}
+                                            className="h-2 rounded-full bg-emerald-400 transition-all duration-500"
+                                            style={{ width: `${Math.min(stats.overallAvgPercentage || 0, 100)}%` }}
                                         />
                                     </div>
                                 </div>
-
-                                {/* Bar Chart */}
-                                <div className="col-span-2 bg-[#0f1629] border border-[#1a2744] rounded-2xl p-5 shadow-lg shadow-black/5">
-                                    <h3 className="text-[#e2e8f0] text-sm font-semibold mb-6">Recent Session Trends</h3>
-                                    {stats.trendData && stats.trendData.length > 0 ? (
-                                        <div className="flex items-end gap-2 h-32 w-full justify-between">
-                                            {stats.trendData.map((data, idx) => (
-                                                <div key={idx} className="flex flex-col justify-end items-center group relative h-full w-full">
-                                                    <div className="absolute -top-6 bg-[#060b18] text-[#e2e8f0] text-[10px] px-2 py-0.5 rounded border border-[#1a2744] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                                                        {data.percentage}% ({data.attendees} att.)
-                                                    </div>
-                                                    <div
-                                                        className="w-full max-w-[20px] bg-[#14b8a6] hover:bg-[#14b8a6]/80 transition-colors rounded-t"
-                                                        style={{ height: `${Math.max(data.percentage, 5)}%` }}
-                                                    />
-                                                    <span className="text-[9px] text-[#64748b] mt-1 truncate w-full text-center">{data.label}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="text-[#64748b] text-xs text-center py-10">No trend data yet</div>
-                                    )}
-                                </div>
                             </div>
                         ) : (
-                            <div className="flex justify-center my-10">
-                                <SpinnerGap size={32} className="text-[#14b8a6] animate-spin" />
+                            <div className="flex justify-center py-10">
+                                <SpinnerGap size={28} className="animate-spin text-[#33c3ff]" />
                             </div>
                         )}
+                    </section>
 
-                        {/* Session list in Analytics */}
-                        {!selectedSession ? (
-                            <>
-                                <h2 className="text-[#e2e8f0] font-semibold text-base mb-3">All Sessions</h2>
-                                {loadingSessions ? (
-                                    <div className="flex justify-center my-6">
-                                        <SpinnerGap size={24} className="text-[#14b8a6] animate-spin" />
-                                    </div>
-                                ) : sessions.length === 0 ? (
-                                    <div className="text-center text-[#64748b] text-sm py-8">No sessions found.</div>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {sessions.map((session) => (
-                                            <button
-                                                key={session._id}
-                                                onClick={() => fetchSessionDetail(session)}
-                                                className="w-full bg-[#0f1629]/60 border border-[#1a2744] rounded-xl p-4 flex justify-between items-center hover:bg-[#0f1629] transition-colors duration-200 cursor-pointer text-left"
-                                            >
-                                                <div>
-                                                    <p className="text-[#e2e8f0] font-medium text-sm">{session.subject}</p>
-                                                    <p className="text-[#64748b] text-xs mt-0.5">
-                                                        {new Date(session.createdAt).toLocaleDateString()}
-                                                    </p>
-                                                </div>
-                                                <div className="flex flex-col items-end gap-1.5">
-                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${session.isActive ? "bg-emerald-500/15 text-[#10b981]" : "bg-[#1a2744]/50 text-[#64748b]"}`}>
-                                                        {session.isActive ? "Active" : "Closed"}
-                                                    </span>
-                                                    {session.attendees !== undefined && (
-                                                        <span className="text-[11px] text-[#14b8a6] flex items-center gap-1">
-                                                            <Users size={11} />
-                                                            {session.attendees} present
-                                                        </span>
-                                                    )}
-                                                    <CaretRight size={14} className="text-[#64748b]/50" />
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </>
-                        ) : (
-                            /* ===== SESSION DETAIL VIEW ===== */
+                    <section className="rounded-[28px] border border-white/6 bg-[#171b24] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
+                        <div className="mb-4 flex items-center justify-between">
                             <div>
-                                <button
-                                    onClick={() => { setSelectedSession(null); setSessionRecords([]); }}
-                                    className="flex items-center gap-1.5 text-[#64748b] text-sm mb-4 hover:text-[#e2e8f0] cursor-pointer transition-colors duration-200"
-                                >
-                                    <CaretLeft size={16} />
-                                    Back to Sessions
-                                </button>
+                                <h3 className="text-lg font-semibold text-white">All Sessions</h3>
+                                <p className="mt-1 text-sm text-slate-400">Open a session to inspect attendance records.</p>
+                            </div>
+                            <button
+                                onClick={fetchSessions}
+                                className="rounded-2xl border border-white/8 bg-[#121722] px-4 py-2 text-sm font-semibold text-white"
+                            >
+                                Reload
+                            </button>
+                        </div>
 
-                                {/* Session Info Header */}
-                                <div className="bg-[#14b8a6]/10 border border-[#14b8a6]/20 rounded-2xl p-4 mb-4 shadow-lg shadow-black/5">
-                                    <div className="flex justify-between items-start">
+                        {loadingSessions ? (
+                            <div className="flex justify-center py-10">
+                                <SpinnerGap size={24} className="animate-spin text-[#33c3ff]" />
+                            </div>
+                        ) : sessions.length === 0 ? (
+                            <div className="rounded-[20px] border border-white/6 bg-[#141925] px-4 py-10 text-center text-sm text-slate-400">
+                                No sessions found.
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {sessions.map((session) => (
+                                    <button
+                                        key={session._id}
+                                        onClick={() => fetchSessionDetail(session)}
+                                        className="flex w-full items-center justify-between rounded-[20px] border border-white/6 bg-[#141925] px-4 py-4 text-left shadow-[0_10px_24px_rgba(0,0,0,0.18)]"
+                                    >
                                         <div>
-                                            <h3 className="text-[#e2e8f0] font-semibold text-lg">{selectedSession.subject}</h3>
-                                            <p className="text-[#64748b] text-xs mt-1">
-                                                {new Date(selectedSession.startTime || selectedSession.createdAt).toLocaleDateString("en-IN", {
-                                                    day: "numeric", month: "short", year: "numeric",
-                                                    hour: "2-digit", minute: "2-digit"
-                                                })}
-                                            </p>
+                                            <p className="text-sm font-semibold text-white">{session.subject}</p>
+                                            <p className="mt-1 text-[11px] text-slate-500">{formatDateTime(session.startTime || session.createdAt)}</p>
                                         </div>
                                         <div className="text-right">
-                                            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${selectedSession.isActive ? "bg-emerald-500/15 text-[#10b981]" : "bg-[#1a2744]/50 text-[#64748b]"}`}>
-                                                {selectedSession.isActive ? "Active" : "Closed"}
+                                            <span className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${session.isActive ? "bg-emerald-500/14 text-emerald-300" : "bg-white/6 text-slate-400"}`}>
+                                                {session.isActive ? "Active" : "Closed"}
                                             </span>
+                                            <p className="mt-2 text-[11px] text-[#33c3ff]">{session.attendees ?? 0} present</p>
                                         </div>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-3 mt-4">
-                                        <div className="bg-[#060b18] border border-[#1a2744] rounded-xl p-3 text-center">
-                                            <p className="text-xl font-bold text-[#e2e8f0]">{sessionRecords.length}</p>
-                                            <p className="text-[#64748b] text-[10px] mt-0.5">Attended</p>
-                                        </div>
-                                        <div className="bg-[#060b18] border border-[#1a2744] rounded-xl p-3 text-center">
-                                            <p className="text-xl font-bold text-[#e2e8f0]">{stats?.totalStudents || 0}</p>
-                                            <p className="text-[#64748b] text-[10px] mt-0.5">Total Students</p>
-                                        </div>
-                                        <div className="bg-[#060b18] border border-[#1a2744] rounded-xl p-3 text-center">
-                                            <p className="text-xl font-bold text-[#10b981]">
-                                                {stats?.totalStudents ? Math.round((sessionRecords.length / stats.totalStudents) * 100) : 0}%
-                                            </p>
-                                            <p className="text-[#64748b] text-[10px] mt-0.5">Percentage</p>
-                                        </div>
-                                    </div>
-                                </div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </section>
+                </>
+            ) : (
+                <section className="space-y-4 rounded-[28px] border border-white/6 bg-[#171b24] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
+                    <button
+                        onClick={() => {
+                            setSelectedSession(null);
+                            setSessionRecords([]);
+                        }}
+                        className="inline-flex items-center gap-2 text-sm font-medium text-slate-400"
+                    >
+                        <ArrowLeft size={16} />
+                        Back to Sessions
+                    </button>
 
-                                {/* Student List */}
-                                <h3 className="text-[#e2e8f0] font-semibold text-sm mb-3">Attendance List</h3>
-                                {loadingRecords ? (
-                                    <div className="flex justify-center py-8">
-                                        <SpinnerGap size={24} className="text-[#14b8a6] animate-spin" />
-                                    </div>
-                                ) : sessionRecords.length === 0 ? (
-                                    <div className="text-center text-[#64748b] text-sm py-8">
-                                        No students attended this session.
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {sessionRecords.map((record, idx) => {
-                                            const student = record.studentId || {};
-                                            return (
-                                                <div
-                                                    key={record._id}
-                                                    className="bg-[#0f1629]/60 border border-[#1a2744] rounded-xl p-3.5"
-                                                >
-                                                    <div className="flex justify-between items-start">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-full bg-[#14b8a6]/20 flex items-center justify-center text-[#e2e8f0] font-bold text-xs">
-                                                                {idx + 1}
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-[#e2e8f0] text-sm font-medium">
-                                                                    {student.name || record.studentName || "Unknown"}
-                                                                </p>
-                                                                <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-                                                                    {student.regNo && (
-                                                                        <span className="text-[#64748b] text-[11px]">Reg: {student.regNo}</span>
-                                                                    )}
-                                                                    {student.branch && (
-                                                                        <span className="text-[#64748b] text-[11px]">Branch: {student.branch}</span>
-                                                                    )}
-                                                                    {student.semester && (
-                                                                        <span className="text-[#64748b] text-[11px]">Sem: {student.semester}</span>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${record.status === "present" ? "bg-emerald-500/15 text-[#10b981]" :
-                                                            record.status === "flagged" ? "bg-yellow-500/15 text-yellow-400" :
-                                                                "bg-red-500/15 text-red-400"
-                                                            }`}>
-                                                            {record.status === "present" ? "Present" : record.status === "flagged" ? "Flagged" : record.status}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1 mt-2 ml-11">
-                                                        <ClockCountdown size={11} className="text-[#64748b]/50" />
-                                                        <span className="text-[#64748b]/50 text-[10px]">
-                                                            {new Date(record.timestamp).toLocaleString("en-IN", {
-                                                                day: "numeric", month: "short",
-                                                                hour: "2-digit", minute: "2-digit", second: "2-digit"
-                                                            })}
-                                                        </span>
-                                                        {record.flags && record.flags.length > 0 && (
-                                                            <span className="text-yellow-400/70 text-[10px] ml-2">⚠ {record.flags.join(", ")}</span>
-                                                        )}
+                    <div className="rounded-[24px] border border-cyan-400/15 bg-[linear-gradient(180deg,rgba(8,96,106,0.95),rgba(16,27,37,0.95))] p-4">
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <h3 className="text-xl font-semibold text-white">{selectedSession.subject}</h3>
+                                <p className="mt-1 text-sm text-cyan-50/70">{formatDateTime(selectedSession.startTime || selectedSession.createdAt)}</p>
+                            </div>
+                            <span className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${selectedSession.isActive ? "bg-emerald-500/14 text-emerald-300" : "bg-white/10 text-slate-200"}`}>
+                                {selectedSession.isActive ? "Active" : "Closed"}
+                            </span>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                            <div className="rounded-[18px] bg-[#121722] p-3 text-center">
+                                <p className="text-2xl font-semibold text-white">{sessionRecords.length}</p>
+                                <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">Attended</p>
+                            </div>
+                            <div className="rounded-[18px] bg-[#121722] p-3 text-center">
+                                <p className="text-2xl font-semibold text-white">{stats?.totalStudents || 0}</p>
+                                <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">Total Students</p>
+                            </div>
+                            <div className="rounded-[18px] bg-[#121722] p-3 text-center">
+                                <p className="text-2xl font-semibold text-emerald-300">
+                                    {stats?.totalStudents ? Math.round((sessionRecords.length / stats.totalStudents) * 100) : 0}%
+                                </p>
+                                <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">Percentage</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {loadingRecords ? (
+                        <div className="flex justify-center py-10">
+                            <SpinnerGap size={24} className="animate-spin text-[#33c3ff]" />
+                        </div>
+                    ) : sessionRecords.length === 0 ? (
+                        <div className="rounded-[20px] border border-white/6 bg-[#141925] px-4 py-10 text-center text-sm text-slate-400">
+                            No students attended this session.
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {sessionRecords.map((record, idx) => {
+                                const student = record.studentId || {};
+                                const statusClass =
+                                    record.status === "present"
+                                        ? "bg-emerald-500/14 text-emerald-300"
+                                        : record.status === "flagged"
+                                          ? "bg-amber-400/14 text-amber-200"
+                                          : "bg-rose-500/14 text-rose-300";
+
+                                return (
+                                    <div key={record._id} className="rounded-[20px] border border-white/6 bg-[#141925] px-4 py-4">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex items-start gap-3">
+                                                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1f2d39] text-sm font-semibold text-white">
+                                                    {idx + 1}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-white">
+                                                        {student.name || record.studentName || "Unknown"}
+                                                    </p>
+                                                    <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-slate-500">
+                                                        {student.regNo && <span>Reg: {student.regNo}</span>}
+                                                        {student.branch && <span>Branch: {student.branch}</span>}
+                                                        {student.semester && <span>Sem: {student.semester}</span>}
                                                     </div>
                                                 </div>
-                                            );
-                                        })}
+                                            </div>
+                                            <span className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${statusClass}`}>
+                                                {record.status === "present" ? "Present" : record.status === "flagged" ? "Flagged" : record.status}
+                                            </span>
+                                        </div>
+                                        <div className="mt-3 text-[11px] text-slate-500">
+                                            {formatDateTime(record.timestamp)}
+                                            {record.flags && record.flags.length > 0 && ` | Flags: ${record.flags.join(", ")}`}
+                                        </div>
                                     </div>
-                                )}
-                            </div>
-                        )}
-                    </>
-                )}
+                                );
+                            })}
+                        </div>
+                    )}
+                </section>
+            )}
+        </div>
+    );
 
-                {/* ========== PROFILE TAB ========== */}
-                {activeTab === "profile" && (
-                    <div className="bg-[#0f1629] border border-[#1a2744] rounded-2xl p-5 mb-6 shadow-lg shadow-black/5">
-                        {!isEditingProfile ? (
-                            <div>
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-[#e2e8f0] font-semibold flex items-center gap-2">
-                                        <User size={20} className="text-[#14b8a6]" />
-                                        My Profile
-                                    </h3>
-                                    <button
-                                        onClick={() => setIsEditingProfile(true)}
-                                        className="text-[#14b8a6] text-xs hover:text-[#14b8a6]/80 cursor-pointer transition-colors duration-200"
-                                    >
-                                        Edit
-                                    </button>
+    const renderProfileTab = () => (
+        <div className="space-y-4 animate-fade-in">
+            <div className="rounded-[28px] border border-white/6 bg-[#171b24] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                        <h2 className="text-lg font-semibold text-white">Profile</h2>
+                        <p className="mt-1 text-sm text-slate-400">Keep your teaching details updated for sessions and reports.</p>
+                    </div>
+                    {!isEditingProfile && (
+                        <button
+                            onClick={() => setIsEditingProfile(true)}
+                            className="text-xs font-semibold text-[#33c3ff]"
+                        >
+                            Edit
+                        </button>
+                    )}
+                </div>
+
+                {!isEditingProfile ? (
+                    <div className="space-y-3">
+                        {[
+                            { icon: <User size={16} />, label: "Full Name", value: user?.name || "Not set" },
+                            { icon: <IdentificationCard size={16} />, label: "Department", value: user?.dept || "Not set" },
+                            { icon: <BookBookmark size={16} />, label: "Main Subject", value: user?.subject || "Not set" },
+                            { icon: <Phone size={16} />, label: "Mobile", value: user?.mobileNo || "Not set" },
+                        ].map((item) => (
+                            <div key={item.label} className="flex items-center gap-3 rounded-[20px] border border-white/6 bg-[#141925] px-4 py-4">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#102833] text-[#61d7ff]">
+                                    {item.icon}
                                 </div>
-                                <div className="space-y-3">
-                                    <div className="flex justify-between border-b border-[#1a2744]/50 pb-2">
-                                        <span className="text-[#64748b] text-sm">Full Name</span>
-                                        <span className="text-[#e2e8f0] text-sm font-medium">{user?.name}</span>
-                                    </div>
-                                    <div className="flex justify-between border-b border-[#1a2744]/50 pb-2">
-                                        <span className="text-[#64748b] text-sm">Department</span>
-                                        <span className="text-[#e2e8f0] text-sm font-medium">{user?.dept}</span>
-                                    </div>
-                                    <div className="flex justify-between border-b border-[#1a2744]/50 pb-2">
-                                        <span className="text-[#64748b] text-sm">Main Subject</span>
-                                        <span className="text-[#e2e8f0] text-sm font-medium">{user?.subject}</span>
-                                    </div>
-                                    <div className="flex justify-between pb-1">
-                                        <span className="text-[#64748b] text-sm">Mobile No.</span>
-                                        <span className="text-[#e2e8f0] text-sm font-medium">{user?.mobileNo}</span>
-                                    </div>
+                                <div>
+                                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
+                                    <p className="mt-1 text-sm font-semibold text-white">{item.value}</p>
                                 </div>
                             </div>
-                        ) : (
-                            <>
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-2">
-                                        <Warning size={20} className="text-yellow-400" />
-                                        <h3 className="text-yellow-300 font-semibold text-sm">
-                                            {isProfileComplete ? "Edit Profile" : "Complete Your Profile"}
-                                        </h3>
-                                    </div>
-                                    {isProfileComplete && (
-                                        <button
-                                            onClick={() => {
-                                                setIsEditingProfile(false);
-                                                setName(user?.name || "");
-                                                setDept(user?.dept || "");
-                                                setProfileSubject(user?.subject || "");
-                                                setMobileNo(user?.mobileNo || "");
-                                            }}
-                                            className="text-[#64748b] hover:text-[#e2e8f0] text-xs cursor-pointer transition-colors duration-200"
-                                        >
-                                            Cancel
-                                        </button>
-                                    )}
-                                </div>
-                                <form onSubmit={handleProfileUpdate} className="space-y-3">
-                                    <div>
-                                        <label className="text-[#64748b] text-xs mb-1.5 flex items-center gap-1">
-                                            <User size={14} /> Full Name
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={name}
-                                            onChange={(e) => setName(e.target.value)}
-                                            required
-                                            placeholder="Your full name"
-                                            className="w-full bg-[#060b18] border border-[#1a2744] rounded-xl px-4 py-2.5 text-[#e2e8f0] text-sm placeholder:text-[#64748b]/50 focus:outline-none focus:border-[#14b8a6] transition-colors duration-200"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[#64748b] text-xs mb-1.5 flex items-center gap-1">
-                                            <IdentificationCard size={14} /> Department
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={dept}
-                                            onChange={(e) => setDept(e.target.value)}
-                                            required
-                                            placeholder="e.g., Computer Science"
-                                            className="w-full bg-[#060b18] border border-[#1a2744] rounded-xl px-4 py-2.5 text-[#e2e8f0] text-sm placeholder:text-[#64748b]/50 focus:outline-none focus:border-[#14b8a6] transition-colors duration-200"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[#64748b] text-xs mb-1.5 flex items-center gap-1">
-                                            <BookBookmark size={14} /> Main Subject
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={profileSubject}
-                                            onChange={(e) => setProfileSubject(e.target.value)}
-                                            required
-                                            placeholder="e.g., Data Structures"
-                                            className="w-full bg-[#060b18] border border-[#1a2744] rounded-xl px-4 py-2.5 text-[#e2e8f0] text-sm placeholder:text-[#64748b]/50 focus:outline-none focus:border-[#14b8a6] transition-colors duration-200"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[#64748b] text-xs mb-1.5 flex items-center gap-1">
-                                            <Phone size={14} /> Mobile No.
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={mobileNo}
-                                            onChange={(e) => setMobileNo(e.target.value)}
-                                            required
-                                            placeholder="Your number"
-                                            className="w-full bg-[#060b18] border border-[#1a2744] rounded-xl px-4 py-2.5 text-[#e2e8f0] text-sm placeholder:text-[#64748b]/50 focus:outline-none focus:border-[#14b8a6] transition-colors duration-200"
-                                        />
-                                    </div>
-                                    <button
-                                        type="submit"
-                                        className="w-full bg-[#14b8a6] hover:bg-[#14b8a6]/90 text-white font-semibold py-2.5 rounded-xl transition-colors duration-200 text-sm cursor-pointer"
-                                    >
-                                        Save Profile
-                                    </button>
-                                </form>
-                            </>
-                        )}
+                        ))}
+                    </div>
+                ) : (
+                    <div className="rounded-[24px] border border-white/6 bg-[#141925] p-4">
+                        <div className="mb-4 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Warning size={18} weight="fill" className="text-amber-300" />
+                                <p className="text-sm font-semibold text-amber-200">
+                                    {isProfileComplete ? "Edit profile" : "Complete your profile"}
+                                </p>
+                            </div>
+                            {isProfileComplete && (
+                                <button
+                                    onClick={() => {
+                                        setIsEditingProfile(false);
+                                        setName(user?.name || "");
+                                        setDept(user?.dept || "");
+                                        setProfileSubject(user?.subject || "");
+                                        setMobileNo(user?.mobileNo || "");
+                                    }}
+                                    className="text-xs font-semibold text-slate-400"
+                                >
+                                    Cancel
+                                </button>
+                            )}
+                        </div>
+
+                        <form onSubmit={handleProfileUpdate} className="space-y-3">
+                            <input type="text" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Full name" className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]" />
+                            <input type="text" value={dept} onChange={(e) => setDept(e.target.value)} required placeholder="Department" className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]" />
+                            <input type="text" value={profileSubject} onChange={(e) => setProfileSubject(e.target.value)} required placeholder="Main subject" className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]" />
+                            <input type="text" value={mobileNo} onChange={(e) => setMobileNo(e.target.value)} required placeholder="Mobile number" className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]" />
+                            <button type="submit" className="w-full rounded-[18px] bg-[#29d8ff] px-4 py-3 text-sm font-semibold text-[#04131f] shadow-[0_16px_34px_rgba(41,216,255,0.22)]">
+                                Save Profile
+                            </button>
+                        </form>
                     </div>
                 )}
+            </div>
+
+            <button
+                onClick={handleLogout}
+                className="flex w-full items-center justify-center gap-2 rounded-[18px] border border-white/8 bg-[#171c27] px-4 py-3 text-sm font-semibold text-white"
+            >
+                <SignOut size={18} />
+                Logout
+            </button>
+        </div>
+    );
+
+    return (
+        <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(23,34,56,0.92),rgba(5,8,18,1)_58%)] text-slate-200">
+            <main className="mx-auto min-h-screen w-full max-w-7xl px-4 pb-28 pt-5 sm:px-6 lg:px-8">
+                <section className="mb-6">
+                    <div className="flex items-center justify-between rounded-[24px] border border-white/6 bg-[#171b24]/96 px-4 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.2)]">
+                        <div>
+                            <p className="text-sm font-semibold text-white">Teacher Dashboard</p>
+                            <p className="mt-1 text-xs text-slate-500">Manage live attendance sessions from one place.</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={openNewSession}
+                                className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/6 bg-[#121722] text-slate-300"
+                            >
+                                <Plus size={18} />
+                            </button>
+                            <button
+                                onClick={() => setActiveTab("profile")}
+                                className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/6 bg-[#121722] text-slate-300"
+                            >
+                                <GearSix size={18} />
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="mb-6">
+                    <h1 className="text-[30px] font-semibold leading-none text-white">
+                        Hello, {user?.name?.split(" ")[0] || "Teacher"}
+                    </h1>
+                    <p className="mt-2 text-sm text-slate-400">Keep classes flowing and attendance records organized.</p>
+                </section>
+
+                {activeTab === "home" && renderHomeTab()}
+                {activeTab === "analytics" && renderAnalyticsTab()}
+                {activeTab === "profile" && renderProfileTab()}
             </main>
 
-            {/* ========== BOTTOM NAV BAR ========== */}
-            <nav className="fixed bottom-0 left-0 right-0 bg-[#060b18]/95 backdrop-blur-md border-t border-[#1a2744] pt-2 px-6 pb-4 z-50">
-                <div className="max-w-lg mx-auto flex justify-between items-center">
+            <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-5">
+                <div className="mx-auto flex w-full max-w-md items-center justify-between rounded-[24px] border border-white/6 bg-[#0e1320]/94 px-5 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl">
                     <button
                         onClick={() => setActiveTab("home")}
-                        className={`flex flex-col items-center gap-0.5 p-2 rounded-xl transition-all duration-200 w-16 cursor-pointer ${activeTab === "home" ? "text-[#14b8a6]" : "text-[#64748b] hover:text-[#e2e8f0]"}`}
+                        className={`flex flex-col items-center gap-1 text-[10px] font-medium ${
+                            activeTab === "home" ? "text-[#2fc6ff]" : "text-slate-500"
+                        }`}
                     >
-                        <House size={24} weight={activeTab === "home" ? "fill" : "regular"} />
-                        <span className="text-[10px] font-medium">Home</span>
+                        <House size={22} weight={activeTab === "home" ? "fill" : "regular"} />
+                        Home
                     </button>
 
                     <button
-                        onClick={() => { setActiveTab("analytics"); fetchStats(); fetchSessions(); }}
-                        className={`flex flex-col items-center gap-0.5 p-2 rounded-xl transition-all duration-200 w-16 cursor-pointer ${activeTab === "analytics" ? "text-[#14b8a6]" : "text-[#64748b] hover:text-[#e2e8f0]"}`}
+                        onClick={openNewSession}
+                        className="flex flex-col items-center gap-1 text-[10px] font-medium text-slate-300"
                     >
-                        <ChartBar size={24} weight={activeTab === "analytics" ? "fill" : "regular"} />
-                        <span className="text-[10px] font-medium">Stats</span>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#2fc6ff]/30 bg-[#101a2e] text-[#2fc6ff]">
+                            <Plus size={20} weight="bold" />
+                        </div>
+                        Session
+                    </button>
+
+                    <button
+                        onClick={() => {
+                            setActiveTab("analytics");
+                            fetchStats();
+                            fetchSessions();
+                        }}
+                        className={`flex flex-col items-center gap-1 text-[10px] font-medium ${
+                            activeTab === "analytics" ? "text-[#2fc6ff]" : "text-slate-500"
+                        }`}
+                    >
+                        <ChartBar size={22} weight={activeTab === "analytics" ? "fill" : "regular"} />
+                        Stats
                     </button>
 
                     <button
                         onClick={() => setActiveTab("profile")}
-                        className={`flex flex-col items-center gap-0.5 p-2 rounded-xl transition-all duration-200 w-16 cursor-pointer ${activeTab === "profile" ? "text-[#14b8a6]" : "text-[#64748b] hover:text-[#e2e8f0]"}`}
+                        className={`flex flex-col items-center gap-1 text-[10px] font-medium ${
+                            activeTab === "profile" ? "text-[#2fc6ff]" : "text-slate-500"
+                        }`}
                     >
-                        <User size={24} weight={activeTab === "profile" ? "fill" : "regular"} />
-                        <span className="text-[10px] font-medium">Profile</span>
+                        <User size={22} weight={activeTab === "profile" ? "fill" : "regular"} />
+                        Profile
                     </button>
                 </div>
-            </nav>
+            </div>
+
+            <style jsx="true">{`
+                .animate-fade-in {
+                    animation: fadeIn 0.35s ease-out forwards;
+                }
+
+                @keyframes fadeIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(10px);
+                    }
+
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+            `}</style>
         </div>
     );
 }
