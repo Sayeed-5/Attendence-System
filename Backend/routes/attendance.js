@@ -274,11 +274,42 @@ router.get("/student/history", verifyToken, async (req, res) => {
     const student = await User.findOne({ firebaseUid: req.firebaseUser.uid });
     if (!student) return res.status(404).json({ msg: "User not found" });
 
-    const records = await Attendance.find({ studentId: student._id })
-      .populate("sessionId", "subject startTime endTime sessionCode")
+    const attendanceRecords = await Attendance.find({ studentId: student._id })
+      .populate({
+        path: "sessionId",
+        select: "subject startTime endTime sessionCode location radius teacherId isActive createdAt",
+        populate: {
+          path: "teacherId",
+          select: "name",
+        },
+      })
       .sort({ timestamp: -1 })
-      .limit(50)
       .lean();
+
+    const attendedSessionIds = attendanceRecords
+      .map((record) => record.sessionId?._id?.toString())
+      .filter(Boolean);
+
+    const unattendedSessions = await Session.find({
+      isActive: false,
+      _id: { $nin: attendedSessionIds },
+    })
+      .populate("teacherId", "name")
+      .sort({ endTime: -1, startTime: -1, createdAt: -1 })
+      .lean();
+
+    const absentRecords = unattendedSessions.map((session) => ({
+      _id: `absent-${session._id}-${student._id}`,
+      studentId: student._id,
+      sessionId: session,
+      status: "absent",
+      timestamp: session.endTime || session.startTime || session.createdAt,
+      synthetic: true,
+    }));
+
+    const records = [...attendanceRecords, ...absentRecords]
+      .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
+      .slice(0, 50);
 
     res.json(records);
   } catch (err) {

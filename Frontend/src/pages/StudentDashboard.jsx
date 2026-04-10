@@ -102,6 +102,54 @@ function formatTimeOnly(value) {
     });
 }
 
+function getSessionSubtitle(session) {
+    if (!session) return "Session details unavailable";
+
+    if (typeof session.teacherName === "string" && session.teacherName.trim()) {
+        return session.teacherName;
+    }
+
+    if (session.teacherId && typeof session.teacherId === "object" && typeof session.teacherId.name === "string" && session.teacherId.name.trim()) {
+        return session.teacherId.name;
+    }
+
+    if (typeof session.room === "string" && session.room.trim()) {
+        return session.room;
+    }
+
+    if (typeof session.location === "string" && session.location.trim()) {
+        return session.location;
+    }
+
+    if (session.location && typeof session.location === "object") {
+        return "Campus geofence enabled";
+    }
+
+    return "Session details unavailable";
+}
+
+function getSessionMeta(session) {
+    if (!session) return "Campus";
+
+    if (typeof session.room === "string" && session.room.trim()) {
+        return session.room;
+    }
+
+    if (typeof session.location === "string" && session.location.trim()) {
+        return session.location;
+    }
+
+    if (session.location && typeof session.location === "object") {
+        return `Campus radius ${session.radius || MAX_RADIUS}m`;
+    }
+
+    if (session.sessionCode) {
+        return `Code ${session.sessionCode}`;
+    }
+
+    return "Campus";
+}
+
 function getStatusTone(status) {
     if (status === "present" || status === "verified") {
         return {
@@ -121,6 +169,22 @@ function getStatusTone(status) {
         label: "Absent",
         badge: "bg-rose-500/14 text-rose-300 border border-rose-400/15",
     };
+}
+
+function getHistorySubject(record) {
+    return record.sessionId?.subject || record.subject || "Unknown Subject";
+}
+
+function getHistoryTeacher(record) {
+    return getSessionSubtitle(record.sessionId) || "Faculty name unavailable";
+}
+
+function getHistoryMeta(record) {
+    return getSessionMeta(record.sessionId) || "Session details unavailable";
+}
+
+function getHistoryTimestamp(record) {
+    return record.timestamp || record.sessionId?.startTime || record.createdAt || record.sessionId?.createdAt;
 }
 
 export default function StudentDashboard() {
@@ -168,6 +232,7 @@ export default function StudentDashboard() {
     const totalSessions = stats?.totalSessions || 0;
     const absentSessions = Math.max(totalSessions - attendedSessions, 0);
     const isInRange = distanceVal !== null && distanceVal <= MAX_RADIUS;
+    const canMarkAttendance = !!scannedSession && scannedSession.isActive !== false && !!location && (distanceVal === null || distanceVal <= MAX_RADIUS);
     const streakDays = history.length ? Math.min(history.length, 12) : 0;
     const historySections = useMemo(() => {
         const grouped = history.reduce((acc, record) => {
@@ -188,18 +253,18 @@ export default function StudentDashboard() {
         if (scannedSession) {
             return {
                 title: scannedSession.subject || "Scanned Session",
-                faculty: scannedSession.teacherName || "Teacher details unavailable",
-                room: scannedSession.room || scannedSession.location || "Campus",
+                faculty: getSessionSubtitle(scannedSession),
+                room: getSessionMeta(scannedSession),
                 attendees: attendedSessions,
-                endsIn: "Ready to check in",
+                endsIn: scannedSession.isActive === false ? "Session closed" : "Ready to check in",
             };
         }
 
         const latestRecord = history.find((record) => record?.sessionId);
         return {
             title: latestRecord?.sessionId?.subject || "No live session detected",
-            faculty: latestRecord?.sessionId?.teacherName || "Scan the QR when class starts",
-            room: latestRecord?.sessionId?.room || latestRecord?.sessionId?.location || "Room info will appear here",
+            faculty: latestRecord?.sessionId ? getSessionSubtitle(latestRecord.sessionId) : "Scan the QR when class starts",
+            room: latestRecord?.sessionId ? getSessionMeta(latestRecord.sessionId) : "Room info will appear here",
             attendees: attendedSessions,
             endsIn: locationStatus === "in-range" ? "You're on campus" : "Scan to mark attendance",
         };
@@ -265,6 +330,11 @@ export default function StudentDashboard() {
             setScannedSession(res.data);
             getCurrentLocation();
             setActiveTab("home");
+            if (res.data?.isActive === false) {
+                toast.error("This session is no longer active");
+            } else {
+                toast.success("Session detected. You can mark attendance now.");
+            }
         } catch (err) {
             toast.error("Session not found or invalid QR code");
         }
@@ -390,25 +460,46 @@ export default function StudentDashboard() {
                                     Session detected
                                 </p>
                                 <p className="mt-1 font-semibold text-[#04131f]">{scannedSession.subject}</p>
+                                <p className="mt-1 text-[11px] text-[#0b3b5a]">{getSessionMeta(scannedSession)}</p>
                             </div>
                             <MapPin size={20} weight="fill" className={isInRange ? "text-emerald-700" : "text-amber-700"} />
                         </div>
+                        <div className="rounded-[16px] bg-white/18 px-3 py-2 text-[11px] text-[#093047]">
+                            {scannedSession.isActive === false
+                                ? "This session has already ended."
+                                : locationStatus === "error"
+                                  ? "Allow location permission, then try again."
+                                  : distanceVal !== null && distanceVal > MAX_RADIUS
+                                    ? "You are outside the allowed campus radius."
+                                    : location
+                                      ? "Location verified. You can submit attendance."
+                                      : "Fetching your live location..."}
+                        </div>
                         <div className="grid grid-cols-2 gap-3">
                             <button
-                                onClick={() => setScannedSession(null)}
+                                onClick={() => {
+                                    setScannedSession(null);
+                                    setLocation(null);
+                                }}
                                 className="rounded-[16px] bg-white/18 px-4 py-3 text-sm font-semibold text-[#052235] cursor-pointer"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleMarkAttendance}
-                                disabled={marking || (distanceVal !== null && distanceVal > MAX_RADIUS)}
+                                disabled={marking || !canMarkAttendance}
                                 className="flex items-center justify-center gap-2 rounded-[16px] bg-[#04131f] px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {marking ? <SpinnerGap className="animate-spin" size={18} /> : <CheckCircle size={18} weight="fill" />}
                                 Mark Present
                             </button>
                         </div>
+                        <button
+                            onClick={getCurrentLocation}
+                            className="w-full rounded-[16px] border border-[#0f2230]/20 bg-white/20 px-4 py-3 text-sm font-semibold text-[#052235] cursor-pointer"
+                        >
+                            Refresh Location
+                        </button>
                     </div>
                 )}
             </section>
@@ -479,11 +570,11 @@ export default function StudentDashboard() {
                                         </div>
                                         <div>
                                             <p className="text-sm font-semibold text-white">
-                                                {record.sessionId?.subject || "Unknown Subject"}
+                                                {getHistorySubject(record)}
                                             </p>
-                                            <p className="mt-1 text-[11px] text-slate-500">{formatDateTime(record.timestamp)}</p>
+                                            <p className="mt-1 text-[11px] text-slate-500">{formatDateTime(getHistoryTimestamp(record))}</p>
                                             <p className="mt-0.5 text-[11px] text-slate-500">
-                                                {record.sessionId?.room || record.sessionId?.location || "Room info unavailable"}
+                                                {getHistoryMeta(record)}
                                             </p>
                                         </div>
                                     </div>
@@ -604,10 +695,10 @@ export default function StudentDashboard() {
                                                     <div className="flex items-start justify-between gap-3">
                                                         <div>
                                                             <p className="text-[15px] font-semibold text-white">
-                                                                {record.sessionId?.subject || "Unknown Subject"}
+                                                                {getHistorySubject(record)}
                                                             </p>
                                                             <p className="mt-1 text-[11px] text-slate-500">
-                                                                {record.sessionId?.teacherName || "Faculty name unavailable"}
+                                                                {getHistoryTeacher(record)}
                                                             </p>
                                                         </div>
                                                         <span className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${tone.badge}`}>
@@ -618,11 +709,11 @@ export default function StudentDashboard() {
                                                     <div className="mt-4 grid grid-cols-2 gap-3 text-[11px] text-slate-400">
                                                         <div className="flex items-center gap-2">
                                                             <Clock size={14} />
-                                                            <span>{formatTimeOnly(record.timestamp)}</span>
+                                                            <span>{formatTimeOnly(getHistoryTimestamp(record))}</span>
                                                         </div>
                                                         <div className="flex items-center gap-2">
                                                             <MapPin size={14} />
-                                                            <span>{record.sessionId?.room || record.sessionId?.location || "Campus"}</span>
+                                                            <span>{getHistoryMeta(record)}</span>
                                                         </div>
                                                     </div>
 
