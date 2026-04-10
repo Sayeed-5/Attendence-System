@@ -5,11 +5,13 @@ import api from "../services/api";
 import QRScanner from "../components/QRScanner";
 import toast from "react-hot-toast";
 import {
+    ArrowLeft,
     BookBookmark,
     Buildings,
     CheckCircle,
     Clock,
     ClockCounterClockwise,
+    FunnelSimple,
     GearSix,
     House,
     IdentificationCard,
@@ -17,6 +19,8 @@ import {
     MapPin,
     Phone,
     QrCode,
+    CalendarBlank,
+    ChartLineUp,
     SignOut,
     SpinnerGap,
     TrendUp,
@@ -58,6 +62,43 @@ function formatShortDate(value) {
         weekday: "short",
         day: "numeric",
         month: "short",
+    });
+}
+
+function getDayKey(value) {
+    if (!value) return "";
+    const date = new Date(value);
+    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function formatDayHeading(value) {
+    if (!value) return "Recent";
+    const date = new Date(value);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    const currentKey = getDayKey(date);
+    if (currentKey === getDayKey(today)) {
+        return `Today, ${date.toLocaleDateString("en-IN", { day: "numeric", month: "short" }).toUpperCase()}`;
+    }
+
+    if (currentKey === getDayKey(yesterday)) {
+        return `Yesterday, ${date.toLocaleDateString("en-IN", { day: "numeric", month: "short" }).toUpperCase()}`;
+    }
+
+    return date.toLocaleDateString("en-IN", {
+        weekday: "long",
+        day: "numeric",
+        month: "short",
+    }).toUpperCase();
+}
+
+function formatTimeOnly(value) {
+    if (!value) return "--:--";
+    return new Date(value).toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
     });
 }
 
@@ -127,6 +168,21 @@ export default function StudentDashboard() {
     const totalSessions = stats?.totalSessions || 0;
     const absentSessions = Math.max(totalSessions - attendedSessions, 0);
     const isInRange = distanceVal !== null && distanceVal <= MAX_RADIUS;
+    const streakDays = history.length ? Math.min(history.length, 12) : 0;
+    const historySections = useMemo(() => {
+        const grouped = history.reduce((acc, record) => {
+            const key = getDayKey(record.timestamp || record.createdAt);
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(record);
+            return acc;
+        }, {});
+
+        return Object.entries(grouped).map(([key, records]) => ({
+            key,
+            title: formatDayHeading(records[0]?.timestamp || records[0]?.createdAt),
+            records,
+        }));
+    }, [history]);
 
     const activeSessionCard = useMemo(() => {
         if (scannedSession) {
@@ -445,50 +501,159 @@ export default function StudentDashboard() {
 
     const renderHistoryTab = () => (
         <div className="space-y-4 animate-fade-in">
-            <div className="rounded-[22px] border border-white/6 bg-[#141925] px-4 py-4">
-                <h2 className="text-lg font-semibold text-white">Attendance History</h2>
-                <p className="mt-1 text-sm text-slate-400">Every scan and attendance status is listed here.</p>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setActiveTab("home")}
+                        className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-white/[0.04] hover:text-white cursor-pointer"
+                    >
+                        <ArrowLeft size={18} weight="bold" />
+                    </button>
+                    <div>
+                        <h2 className="text-lg font-semibold text-white">History</h2>
+                        <p className="text-xs text-slate-500">Track your recent attendance sessions</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/6 bg-[#141925] text-slate-400">
+                        <CalendarBlank size={16} />
+                    </button>
+                    <button className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/6 bg-[#141925] text-slate-400">
+                        <FunnelSimple size={16} />
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">Statistics</p>
+                <div className="grid grid-cols-3 gap-3">
+                    <div className="rounded-[18px] border border-[#34d7ff]/20 bg-[linear-gradient(180deg,#0f6776,#0b4d58)] px-3 py-3 shadow-[0_16px_30px_rgba(12,90,109,0.24)]">
+                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-[#8af2ff]">
+                            <TrendUp size={18} weight="duotone" />
+                        </div>
+                        <p className="text-xl font-semibold leading-none text-white">{attendancePercentage}%</p>
+                        <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-100/80">Attendance</p>
+                    </div>
+
+                    <div className="rounded-[18px] border border-white/6 bg-[#141925] px-3 py-3">
+                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.05] text-slate-300">
+                            <ChartLineUp size={18} weight="duotone" />
+                        </div>
+                        <p className="text-xl font-semibold leading-none text-white">{streakDays} Days</p>
+                        <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Streak</p>
+                    </div>
+
+                    <div className="rounded-[18px] border border-white/6 bg-[#141925] px-3 py-3">
+                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.05] text-slate-300">
+                            <Clock size={18} weight="duotone" />
+                        </div>
+                        <p className="text-xl font-semibold leading-none text-white">{absentSessions}</p>
+                        <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Missed</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {["All", "This Week", "Last Month", "Mathematics"].map((chip, index) => (
+                    <button
+                        key={chip}
+                        className={`whitespace-nowrap rounded-full px-4 py-2 text-[11px] font-semibold ${
+                            index === 0
+                                ? "bg-[#1cc7ee] text-[#04131f]"
+                                : "bg-[#141925] text-slate-400 border border-white/6"
+                        }`}
+                    >
+                        {chip}
+                    </button>
+                ))}
+            </div>
+
+            <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold text-white">Recent Sessions</h3>
+                <span className="text-[11px] font-medium text-slate-500">
+                    {new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
+                </span>
             </div>
 
             {loadingHistory ? (
                 <div className="flex items-center justify-center rounded-[20px] border border-white/6 bg-[#141925] px-4 py-10">
                     <SpinnerGap size={24} className="animate-spin text-[#33c3ff]" />
                 </div>
-            ) : history.length === 0 ? (
-                <div className="rounded-[20px] border border-white/6 bg-[#141925] px-4 py-10 text-center text-sm text-slate-400">
-                    No attendance records yet
-                </div>
             ) : (
-                <div className="space-y-3">
-                    {history.map((record) => {
-                        const tone = getStatusTone(record.status);
-                        return (
-                            <div
-                                key={record._id}
-                                className="rounded-[20px] border border-white/6 bg-[#141925] px-4 py-4 shadow-[0_10px_24px_rgba(0,0,0,0.18)]"
-                            >
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <p className="text-sm font-semibold text-white">
-                                            {record.sessionId?.subject || "Unknown Subject"}
-                                        </p>
-                                        <p className="mt-1 text-[11px] text-slate-500">{formatDateTime(record.timestamp)}</p>
-                                        <p className="mt-2 text-[11px] text-slate-400">
-                                            {record.sessionId?.teacherName || "Faculty name unavailable"}
-                                        </p>
-                                        <p className="mt-1 text-[11px] text-slate-500">
-                                            {record.sessionId?.room || record.sessionId?.location || "Campus"}
-                                        </p>
-                                    </div>
-                                    <span className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${tone.badge}`}>
-                                        {tone.label}
-                                    </span>
+                <div className="space-y-5">
+                    {historySections.length === 0 ? (
+                        <div className="rounded-[20px] border border-white/6 bg-[#141925] px-4 py-10 text-center text-sm text-slate-400">
+                            No attendance records yet
+                        </div>
+                    ) : (
+                        historySections.map((section) => (
+                            <div key={section.key}>
+                                <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                                    {section.title}
+                                </p>
+                                <div className="space-y-3">
+                                    {section.records.map((record) => {
+                                        const tone = getStatusTone(record.status);
+                                        return (
+                                            <div key={record._id} className="flex gap-3">
+                                                <div className="flex w-4 flex-col items-center">
+                                                    <span className={`mt-3 h-2.5 w-2.5 rounded-full ${tone.label === "Absent" ? "bg-rose-400" : "bg-slate-500"}`} />
+                                                    <span className="mt-1 h-full w-px bg-white/8" />
+                                                </div>
+                                                <div className="flex-1 rounded-[22px] border border-white/6 bg-[#141925] px-4 py-4 shadow-[0_10px_24px_rgba(0,0,0,0.18)]">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div>
+                                                            <p className="text-[15px] font-semibold text-white">
+                                                                {record.sessionId?.subject || "Unknown Subject"}
+                                                            </p>
+                                                            <p className="mt-1 text-[11px] text-slate-500">
+                                                                {record.sessionId?.teacherName || "Faculty name unavailable"}
+                                                            </p>
+                                                        </div>
+                                                        <span className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${tone.badge}`}>
+                                                            {tone.label}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="mt-4 grid grid-cols-2 gap-3 text-[11px] text-slate-400">
+                                                        <div className="flex items-center gap-2">
+                                                            <Clock size={14} />
+                                                            <span>{formatTimeOnly(record.timestamp)}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <MapPin size={14} />
+                                                            <span>{record.sessionId?.room || record.sessionId?.location || "Campus"}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="mt-4 flex items-center justify-between border-t border-white/6 pt-3">
+                                                        <p className="text-[10px] text-slate-500">Captured via QR Scan</p>
+                                                        <button className="text-[11px] font-semibold text-[#2fc6ff]">
+                                                            Details
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
-                        );
-                    })}
+                        ))
+                    )}
                 </div>
             )}
+
+            <div className="rounded-[22px] border border-cyan-500/20 bg-[linear-gradient(180deg,rgba(8,90,94,0.95),rgba(10,73,89,0.95))] px-4 py-4 shadow-[0_16px_34px_rgba(8,90,94,0.22)]">
+                <h4 className="text-sm font-semibold text-white">Improve your score?</h4>
+                <p className="mt-1 max-w-[220px] text-[11px] text-cyan-50/70">
+                    Enable location alerts to never miss a check-in reminder.
+                </p>
+                <div className="mt-4 flex justify-end">
+                    <button className="rounded-xl bg-[#2fe4ff] px-4 py-2 text-[11px] font-semibold text-[#06222b]">
+                        Enable
+                    </button>
+                </div>
+            </div>
         </div>
     );
 
