@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { Toaster } from "react-hot-toast";
 import ProtectedRoute from "./components/ProtectedRoute";
-import SplashPage from "./pages/SplashPage";
 import LoginPage from "./pages/LoginPage";
 import StudentDashboard from "./pages/StudentDashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
@@ -27,7 +26,7 @@ function App() {
         />
 
         <Routes>
-          <Route path="/" element={<SplashPage />} />
+          {/* <Route path="/" element={<SplashPage />} /> */}
           <Route path="/login" element={<LoginPage />} />
 
           <Route
