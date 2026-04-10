@@ -15,16 +15,15 @@ import {
     Buildings,
     User as UserIcon,
     Phone,
-    Calendar,
     BookBookmark,
     House,
-    ChartBar,
     ClockCounterClockwise,
-    Fire,
-    Lightning,
-    ShieldCheck,
-    Globe,
     MapPinLine,
+    TrendUp,
+    Target,
+    Sparkle,
+    BookOpen,
+    DotsThreeVertical,
 } from "@phosphor-icons/react";
 
 const COLLEGE_LAT = 20.217426;
@@ -45,6 +44,49 @@ function getDistance(lat1, lon1, lat2, lon2) {
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
+const CircularProgress = ({ percentage }) => {
+    const radius = 60;
+    const stroke = 12;
+    const normalizedRadius = radius - stroke * 2;
+    const circumference = normalizedRadius * 2 * Math.PI;
+    const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+    const color = percentage >= 75 ? "#10b981" : percentage >= 50 ? "#f97316" : "#ef4444";
+
+    return (
+        <div className="relative flex items-center justify-center -ml-4">
+            <svg height={radius * 2} width={radius * 2} className="transform -rotate-90">
+                {/* Background Ring */}
+                <circle
+                    stroke="#ffffff"
+                    fill="transparent"
+                    strokeWidth={stroke}
+                    r={normalizedRadius}
+                    cx={radius}
+                    cy={radius}
+                    className="opacity-10"
+                />
+                {/* Progress Ring */}
+                <circle
+                    stroke={color}
+                    fill="transparent"
+                    strokeWidth={stroke}
+                    strokeDasharray={circumference + " " + circumference}
+                    style={{ strokeDashoffset, transition: "stroke-dashoffset 0.5s ease-in-out" }}
+                    strokeLinecap="round"
+                    r={normalizedRadius}
+                    cx={radius}
+                    cy={radius}
+                />
+            </svg>
+            <div className="absolute flex flex-col items-center justify-center">
+                <span className="text-3xl font-extrabold text-white">{percentage}%</span>
+                <span className="text-[8px] text-[#94a3b8] font-bold tracking-widest uppercase mt-0.5">Overall</span>
+            </div>
+        </div>
+    );
+};
+
 export default function StudentDashboard() {
     const { user, updateProfile } = useAuth();
     const [activeTab, setActiveTab] = useState("home");
@@ -56,9 +98,8 @@ export default function StudentDashboard() {
     const [marking, setMarking] = useState(false);
     const [history, setHistory] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(true);
-    const [locationStatus, setLocationStatus] = useState("checking"); // checking, in-range, out-of-range, error
+    const [locationStatus, setLocationStatus] = useState("checking");
 
-    // Profile completion form
     const [showProfileForm, setShowProfileForm] = useState(false);
     const [name, setName] = useState(user?.name || "");
     const [regNo, setRegNo] = useState(user?.regNo || "");
@@ -175,7 +216,6 @@ export default function StudentDashboard() {
         setMarking(true);
         try {
             const deviceId = `${navigator.userAgent.slice(0, 50)}_${screen.width}x${screen.height}`;
-
             const res = await api.post("/attendance/mark", {
                 sessionId: scannedSession._id,
                 lat: location.lat,
@@ -195,257 +235,225 @@ export default function StudentDashboard() {
         }
     };
 
-    const now = new Date();
-    const formattedDate = now.toLocaleDateString("en-IN", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        year: "numeric",
+    // Derived subject-wise progress from history
+    const subjectStats = history.reduce((acc, curr) => {
+        const sub = curr.sessionId?.subject || "Unknown";
+        if (!acc[sub]) acc[sub] = { present: 0, total: 0 };
+        acc[sub].total += 1;
+        if (curr.status === "present" || curr.status === "verified") {
+            acc[sub].present += 1;
+        }
+        return acc;
+    }, {});
+
+    const subjectWiseData = Object.entries(subjectStats).map(([name, data]) => {
+        const percentage = data.total > 0 ? Math.round((data.present / data.total) * 100) : 0;
+        return { name, present: data.present, total: data.total, percentage };
     });
-    const formattedTime = now.toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-    });
+
+    const isGoodStanding = stats?.percentage >= 75;
 
     return (
-        <div className="min-h-screen bg-[#060b18]">
+        <div className="min-h-screen bg-[#0b1121] text-gray-200">
             <Navbar />
 
-            <main className="max-w-lg mx-auto px-4 sm:px-6 pt-20 pb-24">
-
+            <main className="max-w-lg mx-auto px-4 pt-20 pb-24">
                 {/* ========== HOME TAB ========== */}
                 {activeTab === "home" && (
-                    <>
-                        {/* Daily Check-in Badge */}
-                        <div className="mb-4">
-                            <span className="inline-block text-xs font-semibold px-3 py-1 rounded-full bg-[#eab308]/15 text-[#eab308] border border-[#eab308]/20">
-                                Daily check-in
-                            </span>
+                    <div className="animate-fade-in">
+                        {/* Header Section */}
+                        <div className="mb-6 mt-2">
+                            <h1 className="text-2xl font-bold text-white mb-0.5">Student Dashboard</h1>
+                            <p className="text-gray-400 text-sm">Welcome back, <span className="font-semibold text-gray-200">{user?.name || "Student"}</span>.</p>
                         </div>
 
-                        {/* Hero Heading */}
-                        <div className="mb-5">
-                            <h1 className="text-2xl font-bold text-[#e2e8f0] leading-tight">
-                                Mark attendance in one step
-                            </h1>
-                            <p className="text-[#64748b] text-sm mt-1.5">
-                                Verify your location and record today's attendance with a single action.
+                        {/* Overview Card */}
+                        <div className="bg-[#1a2035] rounded-3xl p-6 mb-5 flex flex-col items-center shadow-lg border border-white/5 relative overflow-hidden">
+                            {/* Subtle Glows */}
+                            <div className="absolute top-[-50%] left-[-20%] w-[80%] h-[150%] bg-blue-500/5 rounded-[100%] blur-[80px]" />
+
+                            <div className="mb-4 relative z-10">
+                                <CircularProgress percentage={stats?.percentage || 0} />
+                            </div>
+
+                            <h2 className="text-white text-xl font-bold mb-1.5 z-10">
+                                {isGoodStanding ? "Good Standing!" : "Critical Action Required!"}
+                            </h2>
+                            <p className="text-[#94a3b8] text-sm mb-5 text-center z-10">
+                                You've attended <span className="text-white font-semibold">{stats?.attendedSessions || 0}</span> out of <span className="text-white font-semibold">{stats?.totalSessions || 0}</span> evaluated sessions.
                             </p>
-                        </div>
 
-                        {/* Live Status Badge */}
-                        <div className="mb-5">
-                            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-[#0f1629] border border-[#1a2744] text-[#e2e8f0]">
-                                {stats?.activeSessionCount > 0 ? (
-                                    <>
-                                        <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse" />
-                                        Live — {stats.activeSessionCount} active session{stats.activeSessionCount > 1 ? "s" : ""}
-                                    </>
-                                ) : (
-                                    <>
-                                        <span className="w-1.5 h-1.5 rounded-full bg-[#64748b]" />
-                                        No active sessions
-                                    </>
-                                )}
-                            </span>
-                        </div>
-
-                        {/* Location Check Card */}
-                        <div className="bg-[#0f1629] border border-[#1a2744] rounded-2xl p-4 mb-4 shadow-lg shadow-black/5">
-                            <div className="flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${locationStatus === "in-range"
-                                    ? "bg-[#10b981]/15 text-[#10b981]"
-                                    : locationStatus === "out-of-range"
-                                        ? "bg-[#eab308]/15 text-[#eab308]"
-                                        : "bg-[#14b8a6]/15 text-[#14b8a6]"
-                                    }`}>
-                                    <MapPinLine size={22} weight="duotone" />
+                            <div className="flex flex-wrap gap-3 mb-6 w-full justify-center z-10">
+                                <div className="flex items-center gap-1.5 border border-blue-500/30 bg-blue-500/10 px-4 py-1.5 rounded-full text-blue-400 text-xs font-semibold">
+                                    <TrendUp size={14} weight="bold" /> Dynamic
                                 </div>
-                                <div>
-                                    <h3 className="text-[#e2e8f0] font-semibold text-sm">Location check</h3>
-                                    <p className="text-[#64748b] text-xs mt-0.5">
-                                        {locationStatus === "checking" && "Checking your location..."}
-                                        {locationStatus === "in-range" && "You are on campus. Ready to check in!"}
-                                        {locationStatus === "out-of-range" && "You are off campus. Move closer to check in."}
-                                        {locationStatus === "error" && "Enable location access to check in."}
-                                    </p>
+                                <div className="flex items-center gap-1.5 border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 rounded-full text-orange-400 text-xs font-semibold">
+                                    <Target size={14} weight="bold" /> Target: 75%
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Mark Window Card (if scanned session exists) */}
-                        {scannedSession && (
-                            <div className="bg-[#0f1629] border border-[#1a2744] rounded-2xl p-5 mb-4 shadow-lg shadow-black/5">
-                                <p className="text-[#64748b] text-[10px] font-semibold tracking-[0.15em] uppercase mb-2">
-                                    MARK WINDOW
-                                </p>
-                                <p className="text-[#e2e8f0] text-2xl font-bold">
-                                    {new Date(scannedSession.startTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })}
-                                    {" "}-{" "}
-                                    {scannedSession.endTime
-                                        ? new Date(scannedSession.endTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })
-                                        : "Open"
-                                    }
-                                </p>
-                                <p className="text-[#e2e8f0] text-sm mt-1">{scannedSession.subject}</p>
-                                <p className="text-[#64748b] text-[10px] font-medium tracking-[0.1em] uppercase mt-1">
-                                    TIMEZONE: ASIA/KOLKATA
-                                </p>
-
-                                {/* Status */}
-                                <div className="flex items-center gap-2 mt-3">
-                                    <MapPin size={14} className={distanceVal !== null && distanceVal <= MAX_RADIUS ? "text-[#10b981]" : "text-[#eab308]"} />
-                                    <span className={`text-xs font-medium ${distanceVal !== null && distanceVal <= MAX_RADIUS
-                                        ? "text-[#10b981]"
-                                        : "text-[#eab308]"
-                                        }`}>
-                                        {distanceVal !== null && distanceVal <= MAX_RADIUS
-                                            ? "Location verified"
-                                            : distanceVal !== null
-                                                ? `${Math.round(distanceVal)}m away — move closer`
-                                                : "Checking location..."
-                                        }
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Mark Attendance Button */}
-                        {!scannedSession ? (
-                            <button
-                                onClick={() => setShowScanner(true)}
-                                className="w-full flex items-center justify-center gap-3 bg-[#0f1629] border border-[#1a2744] hover:border-[#14b8a6]/40 text-[#e2e8f0] font-semibold py-4 px-6 rounded-2xl transition-all duration-200 hover:shadow-lg hover:shadow-teal-500/5 active:scale-[0.98] mb-4 cursor-pointer"
-                            >
-                                <QrCode size={22} weight="duotone" className="text-[#14b8a6]" />
-                                <span>Mark Attendance</span>
-                            </button>
-                        ) : (
-                            <div className="flex gap-3 mb-4">
+                            {!scannedSession ? (
                                 <button
-                                    onClick={() => {
-                                        setScannedSession(null);
-                                        setLocation(null);
-                                        setDistanceVal(null);
-                                    }}
-                                    className="flex-1 bg-[#060b18] border border-[#1a2744] hover:bg-[#1a2744] text-[#e2e8f0] py-3 rounded-xl transition-colors duration-200 text-sm font-medium cursor-pointer"
+                                    onClick={() => setShowScanner(true)}
+                                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3.5 px-4 rounded-[14px] flex items-center justify-center gap-2 transition-all shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.5)] z-10"
                                 >
-                                    Cancel
+                                    <Sparkle size={18} weight="fill" />
+                                    Mark Today's Attendance
                                 </button>
+                            ) : (
+                                <div className="w-full z-10">
+                                    <div className="flex items-center justify-between bg-[#111827] rounded-xl p-3 mb-3 border border-white/5">
+                                        <div>
+                                            <p className="text-xs text-gray-400 font-medium">Session Detected</p>
+                                            <p className="text-sm font-bold text-white">{scannedSession.subject}</p>
+                                        </div>
+                                        <MapPin size={20} className={distanceVal !== null && distanceVal <= MAX_RADIUS ? "text-emerald-500" : "text-orange-500"} />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setScannedSession(null)} className="flex-[0.4] bg-[#2a3449] hover:bg-[#323d54] text-white py-3 rounded-[14px] text-sm font-medium transition-colors duration-200">
+                                            Cancel
+                                        </button>
+                                        <button onClick={handleMarkAttendance} disabled={marking || (distanceVal !== null && distanceVal > MAX_RADIUS)} className="flex-[0.6] bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-[14px] text-sm font-semibold flex items-center justify-center gap-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_14px_0_rgba(16,185,129,0.39)]">
+                                            {marking ? <SpinnerGap className="animate-spin" /> : <CheckCircle weight="bold" size={18} />} Mark Present
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Stats Row */}
+                        <div className="grid grid-cols-3 gap-3 mb-8">
+                            <div className="bg-[#1a2035] rounded-2xl p-4 flex flex-col items-center justify-center border border-white/5 border-b-[3px] border-b-emerald-500/30">
+                                <span className="text-xl font-bold text-emerald-400 mb-1">{stats?.attendedSessions || 0}</span>
+                                <span className="text-[10px] text-emerald-500/80 font-semibold tracking-wider uppercase">Present</span>
+                            </div>
+                            <div className="bg-[#1a2035] rounded-2xl p-4 flex flex-col items-center justify-center border border-white/5 border-b-[3px] border-b-blue-500/30">
+                                <span className="text-xl font-bold text-blue-400 mb-1">{stats?.totalSessions || 0}</span>
+                                <span className="text-[10px] text-blue-500/80 font-semibold tracking-wider uppercase">Total</span>
+                            </div>
+                            <div className="bg-[#1a2035] rounded-2xl p-4 flex flex-col items-center justify-center border border-white/5 border-b-[3px] border-b-red-500/30">
+                                <span className="text-xl font-bold text-red-500 mb-1">{(stats?.totalSessions || 0) - (stats?.attendedSessions || 0)}</span>
+                                <span className="text-[10px] text-red-500/80 font-semibold tracking-wider uppercase">Absent</span>
+                            </div>
+                        </div>
+
+                        {/* Subject Wise Progress Section */}
+                        <div>
+                            <div className="flex items-center justify-between mb-4 px-1">
+                                <div className="flex items-center gap-2">
+                                    <BookOpen size={18} className="text-blue-400" weight="duotone" />
+                                    <h3 className="text-white font-semibold text-sm">Subject Wise Progress</h3>
+                                </div>
                                 <button
-                                    onClick={handleMarkAttendance}
-                                    disabled={marking || !scannedSession.isActive || (distanceVal !== null && distanceVal > MAX_RADIUS)}
-                                    className="flex-1 bg-[#14b8a6] hover:bg-[#14b8a6]/90 text-white py-3 rounded-xl transition-colors duration-200 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                                    onClick={() => setActiveTab("history")}
+                                    className="text-gray-400 hover:text-blue-400 text-xs font-semibold cursor-pointer transition-colors duration-200"
                                 >
-                                    {marking ? (
-                                        <SpinnerGap size={18} className="animate-spin" />
-                                    ) : (
-                                        <CheckCircle size={18} />
-                                    )}
-                                    {marking ? "Marking..." : "Confirm Attendance"}
+                                    View Log &rarr;
                                 </button>
                             </div>
-                        )}
 
-                        {/* Mode Card */}
-                        <div className="bg-[#0f1629] border border-[#1a2744] rounded-2xl p-4 mb-5 shadow-lg shadow-black/5">
-                            <p className="text-[#64748b] text-[10px] font-semibold tracking-[0.15em] uppercase mb-1">MODE</p>
-                            <div className="flex items-center gap-2">
-                                <ShieldCheck size={18} className="text-[#14b8a6]" weight="fill" />
-                                <span className="text-[#e2e8f0] font-semibold text-sm">Geo-verified</span>
-                            </div>
+                            {subjectWiseData.length === 0 ? (
+                                <div className="text-center py-8 bg-[#1a2035] rounded-2xl border border-white/5">
+                                    <p className="text-gray-400 text-sm">No subject data available yet</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {subjectWiseData.map((sub, idx) => {
+                                        const isDanger = sub.percentage < 75;
+                                        const barColor = isDanger ? "bg-red-500" : "bg-blue-500";
+                                        const textColor = isDanger ? "text-red-500" : "text-blue-500";
+                                        const iconColorClass = isDanger ? "text-red-400" : "text-blue-400";
+                                        const iconBgClass = isDanger ? "bg-red-500/10" : "bg-blue-500/10";
+
+                                        return (
+                                            <div key={idx} className="bg-[#1a2035] rounded-2xl p-5 border border-white/5 relative hover:border-white/10 transition-colors duration-300">
+                                                <button className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors duration-200">
+                                                    <DotsThreeVertical size={20} weight="bold" />
+                                                </button>
+
+                                                <div className="flex items-start gap-4 mb-5">
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-inner ${iconBgClass}`}>
+                                                        <BookBookmark size={20} className={iconColorClass} weight="fill" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-white font-bold text-sm tracking-wide leading-tight">{sub.name}</h4>
+                                                        <p className="text-gray-400 text-[10px] font-bold tracking-widest uppercase mt-1">
+                                                            {sub.present}/{sub.total} SESSIONS
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex justify-between items-end mb-1.5">
+                                                    <span className="text-[#94a3b8] text-xs font-medium">Attendance</span>
+                                                    <span className={`text-lg font-extrabold ${textColor}`}>{sub.percentage}%</span>
+                                                </div>
+
+                                                <div className="w-full bg-[#0b1121] h-1.5 rounded-full overflow-hidden relative mb-2 shadow-inner">
+                                                    <div className={`h-full ${barColor} rounded-full transition-all duration-700 ease-out`} style={{ width: `${sub.percentage}%` }} />
+                                                </div>
+
+                                                <div className="flex justify-between items-center text-[9px] text-[#64748b] font-semibold uppercase tracking-wider">
+                                                    <span>0%</span>
+                                                    <span>75% threshold</span>
+                                                    <span>100%</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
-
-                        {/* Stats Row — Streak + Attendance + Classes */}
-                        {stats && (
-                            <div className="grid grid-cols-3 gap-3 mb-5">
-                                <div className="bg-[#0f1629] border border-[#1a2744] rounded-2xl p-4 text-center shadow-lg shadow-black/5">
-                                    <div className="flex items-center justify-center gap-1 mb-2">
-                                        <Fire size={16} className="text-orange-400" weight="fill" />
-                                    </div>
-                                    <p className="text-2xl font-bold text-[#e2e8f0]">{stats.streak}</p>
-                                    <p className="text-[#64748b] text-[10px] font-medium tracking-wider uppercase mt-1">Streak</p>
-                                </div>
-                                <div className="bg-[#0f1629] border border-[#1a2744] rounded-2xl p-4 text-center shadow-lg shadow-black/5">
-                                    <div className="flex items-center justify-center gap-1 mb-2">
-                                        <ChartBar size={16} className="text-[#14b8a6]" />
-                                    </div>
-                                    <p className="text-2xl font-bold text-[#e2e8f0]">{stats.percentage}%</p>
-                                    <p className="text-[#64748b] text-[10px] font-medium tracking-wider uppercase mt-1">Rate</p>
-                                </div>
-                                <div className="bg-[#0f1629] border border-[#1a2744] rounded-2xl p-4 text-center shadow-lg shadow-black/5">
-                                    <div className="flex items-center justify-center gap-1 mb-2">
-                                        <CheckCircle size={16} className="text-[#10b981]" />
-                                    </div>
-                                    <p className="text-2xl font-bold text-[#e2e8f0]">{stats.attendedSessions}<span className="text-sm text-[#64748b] font-normal">/{stats.totalSessions}</span></p>
-                                    <p className="text-[#64748b] text-[10px] font-medium tracking-wider uppercase mt-1">Classes</p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Today Status */}
-                        {stats && (
-                            <div className={`rounded-2xl p-4 mb-4 border ${stats.checkedInToday
-                                ? "bg-[#10b981]/8 border-[#10b981]/20"
-                                : "bg-[#eab308]/8 border-[#eab308]/20"
-                                }`}>
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-2.5 h-2.5 rounded-full ${stats.checkedInToday ? "bg-[#10b981]" : "bg-[#eab308] animate-pulse"}`} />
-                                    <span className={`text-sm font-medium ${stats.checkedInToday ? "text-[#10b981]" : "text-[#eab308]"}`}>
-                                        {stats.checkedInToday ? "Checked in today ✓" : "Not checked in yet"}
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-                    </>
+                    </div>
                 )}
 
                 {/* ========== PROFILE TAB ========== */}
                 {activeTab === "profile" && (
-                    <div className="bg-[#0f1629] border border-[#1a2744] rounded-2xl p-5 mb-6 shadow-lg shadow-black/5">
+                    <div className="bg-[#1a2035] border border-white/5 rounded-3xl p-6 mb-6 shadow-xl relative overflow-hidden animate-fade-in">
+                        <div className="absolute top-[-30%] right-[-10%] w-[50%] h-[100%] bg-blue-500/5 rounded-full blur-[60px]" />
+
                         {!isEditingProfile ? (
-                            <div>
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-[#e2e8f0] font-semibold flex items-center gap-2">
-                                        <UserIcon size={20} className="text-[#14b8a6]" />
+                            <div className="relative z-10">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="text-white text-lg font-bold flex items-center gap-2">
+                                        <UserIcon size={22} className="text-blue-400" weight="duotone" />
                                         My Profile
                                     </h3>
                                     <button
                                         onClick={() => setIsEditingProfile(true)}
-                                        className="text-[#14b8a6] text-xs hover:text-[#14b8a6]/80 flex items-center gap-1 cursor-pointer transition-colors duration-200"
+                                        className="text-blue-400 text-sm font-semibold hover:text-blue-300 transition-colors duration-200"
                                     >
                                         Edit
                                     </button>
                                 </div>
-                                <div className="space-y-3">
-                                    <div className="flex justify-between border-b border-[#1a2744]/50 pb-2">
-                                        <span className="text-[#64748b] text-sm">Full Name</span>
-                                        <span className="text-[#e2e8f0] text-sm font-medium">{user?.name}</span>
+                                <div className="space-y-4">
+                                    <div className="flex justify-between border-b border-white/5 pb-3">
+                                        <span className="text-gray-400 text-sm font-medium">Full Name</span>
+                                        <span className="text-white text-sm font-bold">{user?.name}</span>
                                     </div>
-                                    <div className="flex justify-between border-b border-[#1a2744]/50 pb-2">
-                                        <span className="text-[#64748b] text-sm">Reg. No</span>
-                                        <span className="text-[#e2e8f0] text-sm font-medium">{user?.regNo}</span>
+                                    <div className="flex justify-between border-b border-white/5 pb-3">
+                                        <span className="text-gray-400 text-sm font-medium">Reg. No</span>
+                                        <span className="text-white text-sm font-bold">{user?.regNo}</span>
                                     </div>
-                                    <div className="flex justify-between border-b border-[#1a2744]/50 pb-2">
-                                        <span className="text-[#64748b] text-sm">Branch</span>
-                                        <span className="text-[#e2e8f0] text-sm font-medium">{user?.branch}</span>
+                                    <div className="flex justify-between border-b border-white/5 pb-3">
+                                        <span className="text-gray-400 text-sm font-medium">Branch</span>
+                                        <span className="text-white text-sm font-bold">{user?.branch}</span>
                                     </div>
-                                    <div className="flex justify-between border-b border-[#1a2744]/50 pb-2">
-                                        <span className="text-[#64748b] text-sm">Semester</span>
-                                        <span className="text-[#e2e8f0] text-sm font-medium">{user?.semester}</span>
+                                    <div className="flex justify-between border-b border-white/5 pb-3">
+                                        <span className="text-gray-400 text-sm font-medium">Semester</span>
+                                        <span className="text-white text-sm font-bold">{user?.semester}</span>
                                     </div>
                                     <div className="flex justify-between pb-1">
-                                        <span className="text-[#64748b] text-sm">Mobile No.</span>
-                                        <span className="text-[#e2e8f0] text-sm font-medium">{user?.mobileNo}</span>
+                                        <span className="text-gray-400 text-sm font-medium">Mobile No.</span>
+                                        <span className="text-white text-sm font-bold">{user?.mobileNo}</span>
                                     </div>
                                 </div>
                             </div>
                         ) : (
-                            <>
-                                <div className="flex items-center justify-between mb-4">
+                            <div className="relative z-10">
+                                <div className="flex items-center justify-between mb-5">
                                     <div className="flex items-center gap-2">
-                                        <Warning size={20} className="text-yellow-400" />
-                                        <h3 className="text-yellow-300 font-semibold text-sm">
+                                        <Warning size={20} className="text-orange-400" weight="fill" />
+                                        <h3 className="text-orange-400 font-bold text-sm">
                                             {isProfileComplete ? "Edit Profile" : "Complete Your Profile"}
                                         </h3>
                                     </div>
@@ -459,56 +467,56 @@ export default function StudentDashboard() {
                                                 setSemester(user.semester || "");
                                                 setMobileNo(user.mobileNo || "");
                                             }}
-                                            className="text-[#64748b] hover:text-[#e2e8f0] text-xs cursor-pointer transition-colors duration-200"
+                                            className="text-gray-400 hover:text-white text-xs font-semibold cursor-pointer transition-colors"
                                         >
                                             Cancel
                                         </button>
                                     )}
                                 </div>
-                                <form onSubmit={handleProfileUpdate} className="space-y-3">
+                                <form onSubmit={handleProfileUpdate} className="space-y-4">
                                     <div>
-                                        <label className="text-[#64748b] text-xs mb-1.5 flex items-center gap-1">
+                                        <label className="text-gray-400 text-xs font-medium mb-1.5 flex items-center gap-1">
                                             <UserIcon size={14} /> Full Name
                                         </label>
                                         <input type="text" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Your full name"
-                                            className="w-full bg-[#060b18] border border-[#1a2744] rounded-xl px-4 py-2.5 text-[#e2e8f0] text-sm placeholder:text-[#64748b]/50 focus:outline-none focus:border-[#14b8a6] transition-colors duration-200" />
+                                            className="w-full bg-[#0b1121] border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-blue-500 transition-colors" />
                                     </div>
                                     <div>
-                                        <label className="text-[#64748b] text-xs mb-1.5 flex items-center gap-1">
+                                        <label className="text-gray-400 text-xs font-medium mb-1.5 flex items-center gap-1">
                                             <IdentificationCard size={14} /> Registration No.
                                         </label>
                                         <input type="text" value={regNo} onChange={(e) => setRegNo(e.target.value)} required placeholder="e.g., 21CS001"
-                                            className="w-full bg-[#060b18] border border-[#1a2744] rounded-xl px-4 py-2.5 text-[#e2e8f0] text-sm placeholder:text-[#64748b]/50 focus:outline-none focus:border-[#14b8a6] transition-colors duration-200" />
+                                            className="w-full bg-[#0b1121] border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-blue-500 transition-colors" />
                                     </div>
                                     <div>
-                                        <label className="text-[#64748b] text-xs mb-1.5 flex items-center gap-1">
+                                        <label className="text-gray-400 text-xs font-medium mb-1.5 flex items-center gap-1">
                                             <Buildings size={14} /> Branch
                                         </label>
                                         <input type="text" value={branch} onChange={(e) => setBranch(e.target.value)} required placeholder="e.g., Computer Science"
-                                            className="w-full bg-[#060b18] border border-[#1a2744] rounded-xl px-4 py-2.5 text-[#e2e8f0] text-sm placeholder:text-[#64748b]/50 focus:outline-none focus:border-[#14b8a6] transition-colors duration-200" />
+                                            className="w-full bg-[#0b1121] border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-blue-500 transition-colors" />
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label className="text-[#64748b] text-xs mb-1.5 flex items-center gap-1">
+                                            <label className="text-gray-400 text-xs font-medium mb-1.5 flex items-center gap-1">
                                                 <BookBookmark size={14} /> Semester
                                             </label>
                                             <input type="text" value={semester} onChange={(e) => setSemester(e.target.value)} required placeholder="e.g., 6th"
-                                                className="w-full bg-[#060b18] border border-[#1a2744] rounded-xl px-4 py-2.5 text-[#e2e8f0] text-sm placeholder:text-[#64748b]/50 focus:outline-none focus:border-[#14b8a6] transition-colors duration-200" />
+                                                className="w-full bg-[#0b1121] border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-blue-500 transition-colors" />
                                         </div>
                                         <div>
-                                            <label className="text-[#64748b] text-xs mb-1.5 flex items-center gap-1">
+                                            <label className="text-gray-400 text-xs font-medium mb-1.5 flex items-center gap-1">
                                                 <Phone size={14} /> Mobile No.
                                             </label>
                                             <input type="text" value={mobileNo} onChange={(e) => setMobileNo(e.target.value)} required placeholder="Your number"
-                                                className="w-full bg-[#060b18] border border-[#1a2744] rounded-xl px-4 py-2.5 text-[#e2e8f0] text-sm placeholder:text-[#64748b]/50 focus:outline-none focus:border-[#14b8a6] transition-colors duration-200" />
+                                                className="w-full bg-[#0b1121] border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-blue-500 transition-colors" />
                                         </div>
                                     </div>
                                     <button type="submit"
-                                        className="w-full bg-[#14b8a6] hover:bg-[#14b8a6]/90 text-white font-semibold py-2.5 rounded-xl transition-colors duration-200 text-sm cursor-pointer">
+                                        className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl transition-all duration-300 shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] mt-2">
                                         Save Profile
                                     </button>
                                 </form>
-                            </>
+                            </div>
                         )}
                     </div>
                 )}
@@ -523,46 +531,50 @@ export default function StudentDashboard() {
 
                 {/* ========== HISTORY TAB ========== */}
                 {activeTab === "history" && (
-                    <div>
-                        <h2 className="text-[#e2e8f0] font-semibold mb-3 flex items-center gap-2">
-                            <Clock size={18} className="text-[#14b8a6]" />
+                    <div className="animate-fade-in">
+                        <h2 className="text-white text-lg font-bold mb-4 flex items-center gap-2">
+                            <Clock size={20} className="text-blue-400" />
                             Recent Attendance
                         </h2>
 
                         {loadingHistory ? (
-                            <div className="text-center py-8">
-                                <SpinnerGap size={24} className="animate-spin text-[#14b8a6] mx-auto" />
+                            <div className="text-center py-12">
+                                <SpinnerGap size={28} className="animate-spin text-blue-500 mx-auto mb-3" />
+                                <p className="text-sm text-gray-400">Loading history...</p>
                             </div>
                         ) : history.length === 0 ? (
-                            <div className="text-center py-8 text-[#64748b] text-sm">
-                                No attendance records yet
+                            <div className="text-center py-12 bg-[#1a2035] rounded-3xl border border-white/5">
+                                <Clock size={40} className="text-gray-600 mx-auto mb-3" weight="duotone" />
+                                <p className="text-gray-400 text-sm font-medium">No attendance records yet</p>
                             </div>
                         ) : (
-                            <div className="space-y-2">
-                                {history.map((record) => (
-                                    <div key={record._id}
-                                        className="bg-[#0f1629]/60 border border-[#1a2744] rounded-xl p-4 flex items-center justify-between">
-                                        <div>
-                                            <p className="text-[#e2e8f0] text-sm font-medium">
-                                                {record.sessionId?.subject || "Unknown Subject"}
-                                            </p>
-                                            <p className="text-[#64748b] text-xs mt-0.5">
-                                                {new Date(record.timestamp).toLocaleDateString("en-IN", {
-                                                    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-                                                })}
-                                            </p>
+                            <div className="space-y-3">
+                                {history.map((record) => {
+                                    const isPresent = record.status === "present" || record.status === "verified";
+                                    return (
+                                        <div key={record._id}
+                                            className="bg-[#1a2035] border border-white/5 rounded-2xl p-4 flex items-center justify-between hover:border-white/10 transition-colors">
+                                            <div>
+                                                <p className="text-white text-sm font-bold tracking-wide">
+                                                    {record.sessionId?.subject || "Unknown Subject"}
+                                                </p>
+                                                <p className="text-gray-400 text-[11px] font-medium mt-1">
+                                                    {new Date(record.timestamp).toLocaleDateString("en-IN", {
+                                                        day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+                                                    })}
+                                                </p>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-1.5">
+                                                <span className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-sm ${isPresent
+                                                        ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
+                                                        : "bg-red-500/15 text-red-500 border border-red-500/20"
+                                                    }`}>
+                                                    {isPresent ? "Present" : "Absent"}
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${record.status === "present"
-                                                ? "bg-emerald-500/15 text-[#10b981]"
-                                                : "bg-yellow-500/15 text-yellow-400"
-                                                }`}>
-                                                {record.status === "present" ? "Present" : "Flagged"}
-                                            </span>
-                                            <span className="text-[#64748b] text-xs font-mono">{record.score}</span>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
@@ -570,25 +582,35 @@ export default function StudentDashboard() {
             </main>
 
             {/* Bottom Navigation */}
-            <div className="fixed bottom-0 left-0 right-0 bg-[#060b18]/95 backdrop-blur-md border-t border-[#1a2744] pt-2 px-6 pb-4 z-50">
+            <div className="fixed bottom-0 left-0 right-0 bg-[#0b1121]/90 backdrop-blur-xl border-t border-white/5 pt-3 px-6 pb-5 z-50">
                 <div className="max-w-lg mx-auto flex justify-around items-center">
                     <button onClick={() => setActiveTab("home")}
-                        className={`flex flex-col items-center gap-1 transition-colors duration-200 ${activeTab === "home" ? "text-[#14b8a6]" : "text-[#64748b] hover:text-[#e2e8f0]"} cursor-pointer`}>
+                        className={`flex flex-col items-center gap-1.5 transition-colors duration-200 ${activeTab === "home" ? "text-blue-500" : "text-gray-500 hover:text-gray-300"} cursor-pointer`}>
                         <House size={24} weight={activeTab === "home" ? "fill" : "regular"} />
-                        <span className="text-[10px] font-medium">Home</span>
+                        <span className="text-[10px] font-bold tracking-wider uppercase">Home</span>
                     </button>
                     <button onClick={() => setActiveTab("history")}
-                        className={`flex flex-col items-center gap-1 transition-colors duration-200 ${activeTab === "history" ? "text-[#14b8a6]" : "text-[#64748b] hover:text-[#e2e8f0]"} cursor-pointer`}>
+                        className={`flex flex-col items-center gap-1.5 transition-colors duration-200 ${activeTab === "history" ? "text-blue-500" : "text-gray-500 hover:text-gray-300"} cursor-pointer`}>
                         <ClockCounterClockwise size={24} weight={activeTab === "history" ? "fill" : "regular"} />
-                        <span className="text-[10px] font-medium">History</span>
+                        <span className="text-[10px] font-bold tracking-wider uppercase">Log</span>
                     </button>
                     <button onClick={() => setActiveTab("profile")}
-                        className={`flex flex-col items-center gap-1 transition-colors duration-200 ${activeTab === "profile" ? "text-[#14b8a6]" : "text-[#64748b] hover:text-[#e2e8f0]"} cursor-pointer`}>
+                        className={`flex flex-col items-center gap-1.5 transition-colors duration-200 ${activeTab === "profile" ? "text-blue-500" : "text-gray-500 hover:text-gray-300"} cursor-pointer`}>
                         <UserIcon size={24} weight={activeTab === "profile" ? "fill" : "regular"} />
-                        <span className="text-[10px] font-medium">Profile</span>
+                        <span className="text-[10px] font-bold tracking-wider uppercase">Me</span>
                     </button>
                 </div>
             </div>
+
+            <style jsx="true">{`
+                .animate-fade-in {
+                    animation: fadeIn 0.4s ease-out forwards;
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+            `}</style>
         </div>
     );
 }
