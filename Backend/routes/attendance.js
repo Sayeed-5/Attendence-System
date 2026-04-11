@@ -72,7 +72,9 @@ router.post("/mark", verifyToken, async (req, res) => {
         session.location.lng
       );
 
-      if (distance > session.radius) {
+      // Enforce a minimum radius of 100m even for existing active sessions to prevent 50m drift failures
+      const effectiveRadius = Math.max(session.radius || 100, 100);
+      if (distance > effectiveRadius) {
         return res.status(400).json({ msg: "You are outside the college campus and cannot mark attendance." });
       }
     } else {

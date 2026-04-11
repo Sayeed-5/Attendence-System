@@ -50,7 +50,7 @@ router.post("/create", verifyToken, async (req, res) => {
       startTime,
       qrCode,
       location: { lat, lng },
-      radius: 50,
+      radius: 100,
       isActive: true,
     });
 

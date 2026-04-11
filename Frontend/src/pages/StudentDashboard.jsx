@@ -30,7 +30,7 @@ import {
 
 const COLLEGE_LAT = 20.217426;
 const COLLEGE_LNG = 85.682104;
-const MAX_RADIUS = 50;
+const MAX_RADIUS = 100;
 
 function getDistance(lat1, lon1, lat2, lon2) {
     const R = 6371e3;
@@ -420,15 +420,14 @@ export default function StudentDashboard() {
                         {["A", "B", "C", "D"].map((label, index) => (
                             <div
                                 key={label}
-                                className={`flex h-7 w-7 items-center justify-center rounded-full border border-[#06101c] text-[10px] font-semibold text-white ${
-                                    index === 0
-                                        ? "bg-[#f59e0b]"
-                                        : index === 1
-                                          ? "bg-[#ec4899]"
-                                          : index === 2
+                                className={`flex h-7 w-7 items-center justify-center rounded-full border border-[#06101c] text-[10px] font-semibold text-white ${index === 0
+                                    ? "bg-[#f59e0b]"
+                                    : index === 1
+                                        ? "bg-[#ec4899]"
+                                        : index === 2
                                             ? "bg-[#3b82f6]"
                                             : "bg-[#14b8a6]"
-                                }`}
+                                    }`}
                             >
                                 {label}
                             </div>
@@ -468,12 +467,12 @@ export default function StudentDashboard() {
                             {scannedSession.isActive === false
                                 ? "This session has already ended."
                                 : locationStatus === "error"
-                                  ? "Allow location permission, then try again."
-                                  : distanceVal !== null && distanceVal > MAX_RADIUS
-                                    ? "You are outside the allowed campus radius."
-                                    : location
-                                      ? "Location verified. You can submit attendance."
-                                      : "Fetching your live location..."}
+                                    ? "Allow location permission, then try again."
+                                    : distanceVal !== null && distanceVal > MAX_RADIUS
+                                        ? "You are outside the allowed campus radius."
+                                        : location
+                                            ? "Location verified. You can submit attendance."
+                                            : "Fetching your live location..."}
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <button
@@ -648,11 +647,10 @@ export default function StudentDashboard() {
                 {["All", "This Week", "Last Month", "Mathematics"].map((chip, index) => (
                     <button
                         key={chip}
-                        className={`whitespace-nowrap rounded-full px-4 py-2 text-[11px] font-semibold ${
-                            index === 0
-                                ? "bg-[#1cc7ee] text-[#04131f]"
-                                : "bg-[#141925] text-slate-400 border border-white/6"
-                        }`}
+                        className={`whitespace-nowrap rounded-full px-4 py-2 text-[11px] font-semibold ${index === 0
+                            ? "bg-[#1cc7ee] text-[#04131f]"
+                            : "bg-[#141925] text-slate-400 border border-white/6"
+                            }`}
                     >
                         {chip}
                     </button>
@@ -938,10 +936,10 @@ export default function StudentDashboard() {
                                 {locationStatus === "in-range"
                                     ? "On campus"
                                     : locationStatus === "out-of-range"
-                                      ? "Outside campus"
-                                      : locationStatus === "error"
-                                        ? "Location blocked"
-                                        : "Checking location"}
+                                        ? "Outside campus"
+                                        : locationStatus === "error"
+                                            ? "Location blocked"
+                                            : "Checking location"}
                             </span>
                         </div>
                     </section>
@@ -958,9 +956,8 @@ export default function StudentDashboard() {
                 <div className="mx-auto flex w-full max-w-md items-center justify-between rounded-[24px] border border-white/6 bg-[#0e1320]/94 px-5 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl">
                     <button
                         onClick={() => setActiveTab("home")}
-                        className={`flex flex-col items-center gap-1 text-[10px] font-medium ${
-                            activeTab === "home" ? "text-[#2fc6ff]" : "text-slate-500"
-                        }`}
+                        className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === "home" ? "text-[#2fc6ff]" : "text-slate-500"
+                            }`}
                     >
                         <House size={22} weight={activeTab === "home" ? "fill" : "regular"} />
                         Home
@@ -978,9 +975,8 @@ export default function StudentDashboard() {
 
                     <button
                         onClick={() => setActiveTab("history")}
-                        className={`flex flex-col items-center gap-1 text-[10px] font-medium ${
-                            activeTab === "history" ? "text-[#2fc6ff]" : "text-slate-500"
-                        }`}
+                        className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === "history" ? "text-[#2fc6ff]" : "text-slate-500"
+                            }`}
                     >
                         <ClockCounterClockwise size={22} weight={activeTab === "history" ? "fill" : "regular"} />
                         History
@@ -988,9 +984,8 @@ export default function StudentDashboard() {
 
                     <button
                         onClick={() => setActiveTab("profile")}
-                        className={`flex flex-col items-center gap-1 text-[10px] font-medium ${
-                            activeTab === "profile" ? "text-[#2fc6ff]" : "text-slate-500"
-                        }`}
+                        className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === "profile" ? "text-[#2fc6ff]" : "text-slate-500"
+                            }`}
                     >
                         <UserIcon size={22} weight={activeTab === "profile" ? "fill" : "regular"} />
                         Profile
