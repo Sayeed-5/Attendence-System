@@ -23,15 +23,20 @@ router.post("/login", verifyToken, async (req, res) => {
       // First-time login — create user
       user = await User.create({
         firebaseUid: uid,
-        name,
+        name: name || email,
         email,
         profilePicture: picture,
         role: secureRole,
       });
     } else {
-      // Update name/picture from Google (may change)
-      user.name = name;
-      user.profilePicture = picture;
+      // Preserve edits saved in MongoDB instead of overwriting with
+      // Firebase display names on every refresh.
+      if (!user.name && name) {
+        user.name = name;
+      }
+      if ((!user.profilePicture || provider === "google.com") && picture) {
+        user.profilePicture = picture;
+      }
       // Do not downgrade a teacher if they somehow trigger a login, but ensure strict access
       if (user.role !== secureRole) {
          // If a student tries to sign in with password, or a teacher with Google, we log it and reject or handle

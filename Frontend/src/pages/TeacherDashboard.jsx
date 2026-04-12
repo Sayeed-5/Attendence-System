@@ -6,20 +6,27 @@ import QRDisplay from "../components/QRDisplay";
 import toast from "react-hot-toast";
 import {
     ArrowLeft,
+    CalendarBlank,
     ChartBar,
     CheckCircle,
     ClockCountdown,
+    DownloadSimple,
     Export,
+    FunnelSimple,
     GearSix,
+    GraduationCap,
     House,
     IdentificationCard,
     MapPin,
+    MagnifyingGlass,
     Phone,
     Plus,
+    Prohibit,
     SignOut,
     SpinnerGap,
     User,
     Users,
+    UsersThree,
     Warning,
     XCircle,
     BookBookmark,
@@ -49,7 +56,17 @@ export default function TeacherDashboard() {
     const [attendanceCount, setAttendanceCount] = useState(null);
     const [selectedSession, setSelectedSession] = useState(null);
     const [sessionRecords, setSessionRecords] = useState([]);
+    const [selectedSessionSummary, setSelectedSessionSummary] = useState({
+        presentCount: 0,
+        flaggedCount: 0,
+        absentCount: 0,
+        attendedCount: 0,
+        totalStudents: 0,
+        attendancePercentage: 0,
+    });
     const [loadingRecords, setLoadingRecords] = useState(false);
+    const [analyticsSearch, setAnalyticsSearch] = useState("");
+    const [analyticsStatusFilter, setAnalyticsStatusFilter] = useState("all");
     const [subject, setSubject] = useState("");
     const [creating, setCreating] = useState(false);
     const [name, setName] = useState(user?.name || "");
@@ -125,15 +142,80 @@ export default function TeacherDashboard() {
         setSelectedSession(session);
         setLoadingRecords(true);
         try {
-            const res = await api.get(`/attendance/session/${session._id}`);
-            setSessionRecords(res.data);
+            const res = await api.get(`/attendance/session/${session._id}/roster`);
+            setSessionRecords(res.data.records || []);
+            setSelectedSessionSummary({
+                presentCount: res.data.presentCount || 0,
+                flaggedCount: res.data.flaggedCount || 0,
+                absentCount: res.data.absentCount || 0,
+                attendedCount: res.data.attendedCount || 0,
+                totalStudents: res.data.totalStudents || 0,
+                attendancePercentage: res.data.attendancePercentage || 0,
+            });
+            setAnalyticsSearch("");
+            setAnalyticsStatusFilter("all");
         } catch (err) {
             console.error("Session detail fetch failed:", err);
             setSessionRecords([]);
+            setSelectedSessionSummary({
+                presentCount: 0,
+                flaggedCount: 0,
+                absentCount: 0,
+                attendedCount: 0,
+                totalStudents: 0,
+                attendancePercentage: 0,
+            });
         } finally {
             setLoadingRecords(false);
         }
     };
+
+    const handleSelectedSessionExport = async () => {
+        if (!selectedSession?._id) return;
+
+        try {
+            const res = await api.get(`/attendance/export/${selectedSession._id}`, {
+                responseType: "blob",
+            });
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute(
+                "download",
+                `attendance_${selectedSession?.subject || "export"}.csv`
+            );
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success("CSV downloaded!");
+        } catch (err) {
+            toast.error("Export failed");
+        }
+    };
+
+    const filteredAnalyticsRecords = useMemo(() => {
+        const query = analyticsSearch.trim().toLowerCase();
+
+        return sessionRecords.filter((record) => {
+            const student = record.studentId || {};
+            const name = (student.name || record.studentName || "").toLowerCase();
+            const regNo = (student.regNo || "").toLowerCase();
+            const branch = (student.branch || "").toLowerCase();
+            const matchesSearch =
+                !query ||
+                name.includes(query) ||
+                regNo.includes(query) ||
+                branch.includes(query);
+
+            const matchesStatus =
+                analyticsStatusFilter === "all"
+                    ? true
+                    : record.status === analyticsStatusFilter;
+
+            return matchesSearch && matchesStatus;
+        });
+    }, [analyticsSearch, analyticsStatusFilter, sessionRecords]);
 
     const handleCreateSession = async (e) => {
         e.preventDefault();
@@ -580,6 +662,16 @@ export default function TeacherDashboard() {
                         onClick={() => {
                             setSelectedSession(null);
                             setSessionRecords([]);
+                            setSelectedSessionSummary({
+                                presentCount: 0,
+                                flaggedCount: 0,
+                                absentCount: 0,
+                                attendedCount: 0,
+                                totalStudents: 0,
+                                attendancePercentage: 0,
+                            });
+                            setAnalyticsSearch("");
+                            setAnalyticsStatusFilter("all");
                         }}
                         className="inline-flex items-center gap-2 text-sm font-medium text-slate-400"
                     >
@@ -587,32 +679,101 @@ export default function TeacherDashboard() {
                         Back to Sessions
                     </button>
 
-                    <div className="rounded-[24px] border border-cyan-400/15 bg-[linear-gradient(180deg,rgba(8,96,106,0.95),rgba(16,27,37,0.95))] p-4">
-                        <div className="flex items-start justify-between gap-3">
+                    <div className="rounded-[28px] border border-cyan-400/15 bg-[linear-gradient(180deg,rgba(8,96,106,0.95),rgba(16,27,37,0.95))] p-5">
+                        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                             <div>
-                                <h3 className="text-xl font-semibold text-white">{selectedSession.subject}</h3>
-                                <p className="mt-1 text-sm text-cyan-50/70">{formatDateTime(selectedSession.startTime || selectedSession.createdAt)}</p>
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-cyan-100">
+                                        <GraduationCap size={22} weight="duotone" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-3xl font-semibold text-white">{selectedSession.subject}</h3>
+                                        <p className="mt-1 text-sm text-cyan-50/70">{formatDateTime(selectedSession.startTime || selectedSession.createdAt)}</p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-cyan-50/70">
+                                    <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5">
+                                        <CalendarBlank size={14} />
+                                        Code: {selectedSession.sessionCode || "Unavailable"}
+                                    </span>
+                                </div>
                             </div>
-                            <span className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${selectedSession.isActive ? "bg-emerald-500/14 text-emerald-300" : "bg-white/10 text-slate-200"}`}>
-                                {selectedSession.isActive ? "Active" : "Closed"}
-                            </span>
+                            <div className="flex flex-col items-start gap-3 xl:items-end">
+                                <span className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${selectedSession.isActive ? "bg-emerald-500/14 text-emerald-300" : "bg-white/10 text-slate-200"}`}>
+                                    {selectedSession.isActive ? "Active" : "Closed"}
+                                </span>
+                                <button
+                                    onClick={handleSelectedSessionExport}
+                                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#121722] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#161d29]"
+                                >
+                                    <DownloadSimple size={18} />
+                                    Export CSV
+                                </button>
+                            </div>
                         </div>
 
-                        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                            <div className="rounded-[18px] bg-[#121722] p-3 text-center">
-                                <p className="text-2xl font-semibold text-white">{sessionRecords.length}</p>
-                                <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">Attended</p>
+                        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className="rounded-[22px] bg-[#121722] p-4 text-center">
+                                <p className="text-3xl font-semibold text-white">{selectedSessionSummary.attendedCount}</p>
+                                <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-slate-500">Attended</p>
                             </div>
-                            <div className="rounded-[18px] bg-[#121722] p-3 text-center">
-                                <p className="text-2xl font-semibold text-white">{stats?.totalStudents || 0}</p>
-                                <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">Total Students</p>
+                            <div className="rounded-[22px] bg-[#121722] p-4 text-center">
+                                <p className="text-3xl font-semibold text-white">{selectedSessionSummary.totalStudents}</p>
+                                <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-slate-500">Total Students</p>
                             </div>
-                            <div className="rounded-[18px] bg-[#121722] p-3 text-center">
-                                <p className="text-2xl font-semibold text-emerald-300">
-                                    {stats?.totalStudents ? Math.round((sessionRecords.length / stats.totalStudents) * 100) : 0}%
+                            <div className="rounded-[22px] bg-[#121722] p-4 text-center">
+                                <p className="text-3xl font-semibold text-rose-300">{selectedSessionSummary.absentCount}</p>
+                                <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-slate-500">Absent</p>
+                            </div>
+                            <div className="rounded-[22px] bg-[#121722] p-4 text-center">
+                                <p className="text-3xl font-semibold text-emerald-300">
+                                    {selectedSessionSummary.attendancePercentage}%
                                 </p>
-                                <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">Percentage</p>
+                                <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-slate-500">Percentage</p>
                             </div>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                        <div className="relative w-full xl:max-w-xl">
+                            <MagnifyingGlass
+                                size={18}
+                                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
+                            />
+                            <input
+                                type="text"
+                                value={analyticsSearch}
+                                onChange={(e) => setAnalyticsSearch(e.target.value)}
+                                placeholder="Search by name, reg no, or branch..."
+                                className="w-full rounded-[20px] border border-white/8 bg-[#141925] py-3 pl-11 pr-4 text-sm text-white outline-none transition focus:border-[#33c3ff]"
+                            />
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-2 rounded-2xl border border-white/8 bg-[#141925] px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                                <FunnelSimple size={16} />
+                                Filter
+                            </span>
+                            {[
+                                { key: "all", label: "All", count: sessionRecords.length },
+                                { key: "present", label: "Present", count: selectedSessionSummary.presentCount },
+                                { key: "flagged", label: "Flagged", count: selectedSessionSummary.flaggedCount },
+                                { key: "absent", label: "Absent", count: selectedSessionSummary.absentCount },
+                            ].map((chip) => (
+                                <button
+                                    key={chip.key}
+                                    type="button"
+                                    onClick={() => setAnalyticsStatusFilter(chip.key)}
+                                    className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                                        analyticsStatusFilter === chip.key
+                                            ? "bg-[#29d8ff] text-[#04131f]"
+                                            : "border border-white/8 bg-[#141925] text-slate-300"
+                                    }`}
+                                >
+                                    {chip.label} ({chip.count})
+                                </button>
+                            ))}
                         </div>
                     </div>
 
@@ -620,14 +781,17 @@ export default function TeacherDashboard() {
                         <div className="flex justify-center py-10">
                             <SpinnerGap size={24} className="animate-spin text-[#33c3ff]" />
                         </div>
-                    ) : sessionRecords.length === 0 ? (
+                    ) : filteredAnalyticsRecords.length === 0 ? (
                         <div className="rounded-[20px] border border-white/6 bg-[#141925] px-4 py-10 text-center text-sm text-slate-400">
-                            No students attended this session.
+                            {sessionRecords.length === 0
+                                ? "No student records found for this session."
+                                : "No students matched your current search or filter."}
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {sessionRecords.map((record, idx) => {
+                            {filteredAnalyticsRecords.map((record, idx) => {
                                 const student = record.studentId || {};
+                                const isAbsent = record.status === "absent";
                                 const statusClass =
                                     record.status === "present"
                                         ? "bg-emerald-500/14 text-emerald-300"
@@ -636,36 +800,88 @@ export default function TeacherDashboard() {
                                           : "bg-rose-500/14 text-rose-300";
 
                                 return (
-                                    <div key={record._id} className="rounded-[20px] border border-white/6 bg-[#141925] px-4 py-4">
-                                        <div className="flex items-start justify-between gap-3">
+                                    <div key={record._id} className="rounded-[20px] border border-white/6 bg-[#141925] px-4 py-4 shadow-[0_10px_24px_rgba(0,0,0,0.18)]">
+                                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                             <div className="flex items-start gap-3">
-                                                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1f2d39] text-sm font-semibold text-white">
+                                                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1f2d39] text-sm font-semibold text-white">
                                                     {idx + 1}
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-semibold text-white">
+                                                    <p className="text-2xl font-semibold text-white">
                                                         {student.name || record.studentName || "Unknown"}
                                                     </p>
-                                                    <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-slate-500">
+                                                    <div className="mt-1 flex flex-wrap gap-3 text-sm text-slate-500">
                                                         {student.regNo && <span>Reg: {student.regNo}</span>}
                                                         {student.branch && <span>Branch: {student.branch}</span>}
                                                         {student.semester && <span>Sem: {student.semester}</span>}
                                                     </div>
+                                                    <p className="mt-3 text-sm text-slate-500">
+                                                        {isAbsent
+                                                            ? "Not marked for this session"
+                                                            : formatDateTime(record.timestamp)}
+                                                    </p>
                                                 </div>
                                             </div>
-                                            <span className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${statusClass}`}>
-                                                {record.status === "present" ? "Present" : record.status === "flagged" ? "Flagged" : record.status}
-                                            </span>
+
+                                            <div className="flex flex-col items-start gap-2 lg:items-end">
+                                                <span className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] ${statusClass}`}>
+                                                    {record.status === "present" ? "Present" : record.status === "flagged" ? "Flagged" : "Absent"}
+                                                </span>
+                                                {!isAbsent && (
+                                                    <p className="text-xs text-slate-500">
+                                                        Score: {record.score ?? 0}
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div className="mt-3 text-[11px] text-slate-500">
-                                            {formatDateTime(record.timestamp)}
-                                            {record.flags && record.flags.length > 0 && ` | Flags: ${record.flags.join(", ")}`}
-                                        </div>
+
+                                        {record.flags && record.flags.length > 0 && (
+                                            <div className="mt-3 flex flex-wrap gap-2">
+                                                {record.flags.map((flag) => (
+                                                    <span
+                                                        key={flag}
+                                                        className="rounded-full border border-amber-400/20 bg-amber-400/10 px-2.5 py-1 text-[11px] text-amber-200"
+                                                    >
+                                                        {flag}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
                         </div>
                     )}
+
+                    <div className="grid gap-4 md:grid-cols-3">
+                        <div className="rounded-[24px] border border-white/6 bg-[#171b24]/96 p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
+                            <UsersThree size={20} className="text-cyan-300" />
+                            <p className="mt-4 text-2xl font-semibold text-white">
+                                {selectedSessionSummary.presentCount}
+                            </p>
+                            <p className="mt-1 text-sm text-slate-400">
+                                Students marked present normally.
+                            </p>
+                        </div>
+                        <div className="rounded-[24px] border border-white/6 bg-[#171b24]/96 p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
+                            <Warning size={20} className="text-amber-300" />
+                            <p className="mt-4 text-2xl font-semibold text-white">
+                                {selectedSessionSummary.flaggedCount}
+                            </p>
+                            <p className="mt-1 text-sm text-slate-400">
+                                Students flagged for review or unusual checks.
+                            </p>
+                        </div>
+                        <div className="rounded-[24px] border border-white/6 bg-[#171b24]/96 p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
+                            <Prohibit size={20} className="text-rose-300" />
+                            <p className="mt-4 text-2xl font-semibold text-white">
+                                {selectedSessionSummary.absentCount}
+                            </p>
+                            <p className="mt-1 text-sm text-slate-400">
+                                Students missing from the final session roster.
+                            </p>
+                        </div>
+                    </div>
                 </section>
             )}
         </div>

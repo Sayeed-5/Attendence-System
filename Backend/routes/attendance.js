@@ -142,6 +142,77 @@ router.get("/session/:sessionId", verifyToken, async (req, res) => {
   }
 });
 
+router.get("/session/:sessionId/roster", verifyToken, async (req, res) => {
+  try {
+    const teacher = await User.findOne({ firebaseUid: req.firebaseUser.uid });
+    if (!teacher || teacher.role !== "teacher") {
+      return res.status(403).json({ msg: "Only teachers can view this roster" });
+    }
+
+    const session = await Session.findById(req.params.sessionId).lean();
+    if (!session) {
+      return res.status(404).json({ msg: "Session not found" });
+    }
+
+    if (session.teacherId.toString() !== teacher._id.toString()) {
+      return res.status(403).json({ msg: "Not your session" });
+    }
+
+    const [students, rawRecords] = await Promise.all([
+      User.find({ role: "student" })
+        .select("name email regNo branch semester profilePicture")
+        .sort({ name: 1 })
+        .lean(),
+      Attendance.find({ sessionId: req.params.sessionId })
+        .populate("studentId", "name email regNo branch semester profilePicture")
+        .sort({ timestamp: 1 })
+        .lean(),
+    ]);
+
+    const recordByStudentId = new Map(
+      rawRecords
+        .filter((record) => record.studentId?._id)
+        .map((record) => [record.studentId._id.toString(), record])
+    );
+
+    const absentRecords = students
+      .filter((student) => !recordByStudentId.has(student._id.toString()))
+      .map((student) => ({
+        _id: `absent-${req.params.sessionId}-${student._id}`,
+        studentId: student,
+        studentName: student.name,
+        studentEmail: student.email,
+        status: "absent",
+        score: 0,
+        flags: [],
+        synthetic: true,
+        timestamp: session.endTime || session.startTime || session.createdAt,
+      }));
+
+    const records = [...rawRecords, ...absentRecords];
+    const presentCount = rawRecords.filter((record) => record.status === "present").length;
+    const flaggedCount = rawRecords.filter((record) => record.status === "flagged").length;
+    const absentCount = absentRecords.length;
+    const attendedCount = presentCount + flaggedCount;
+    const totalStudents = students.length;
+    const attendancePercentage =
+      totalStudents === 0 ? 0 : Math.round((attendedCount / totalStudents) * 100);
+
+    res.json({
+      records,
+      presentCount,
+      flaggedCount,
+      absentCount,
+      attendedCount,
+      totalStudents,
+      attendancePercentage,
+    });
+  } catch (err) {
+    console.error("Session roster error:", err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
+
 /**
  * GET /api/attendance/teacher/stats
  * Get analytics for the logged-in teacher

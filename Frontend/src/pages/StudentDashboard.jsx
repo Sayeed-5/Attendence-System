@@ -399,8 +399,9 @@ export default function StudentDashboard() {
     };
 
     const renderHomeTab = () => (
-        <div className="space-y-4 animate-fade-in">
-            <section className="rounded-[26px] border border-emerald-400/45 bg-[linear-gradient(180deg,rgba(7,28,36,0.96),rgba(7,20,33,0.98))] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.24)]">
+        <div className="space-y-4 animate-fade-in lg:grid lg:grid-cols-[1.06fr_0.94fr] lg:gap-5 lg:space-y-0">
+            <div className="space-y-4">
+            <section className="rounded-[26px] border border-emerald-400/45 bg-[linear-gradient(180deg,rgba(7,28,36,0.96),rgba(7,20,33,0.98))] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.24)] lg:min-h-[250px] lg:p-5">
                 <div className="mb-4 flex items-center justify-between">
                     <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-300">
                         <span className="h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(74,222,128,0.8)]" />
@@ -437,7 +438,7 @@ export default function StudentDashboard() {
                 </div>
             </section>
 
-            <section className="rounded-[22px] bg-[#1daaf2] px-4 py-4 text-[#04131f] shadow-[0_16px_36px_rgba(29,170,242,0.24)]">
+            <section className="rounded-[22px] bg-[#1daaf2] px-4 py-4 text-[#04131f] shadow-[0_16px_36px_rgba(29,170,242,0.24)] lg:p-5">
                 {!scannedSession ? (
                     <>
                         <button
@@ -503,6 +504,9 @@ export default function StudentDashboard() {
                 )}
             </section>
 
+            </div>
+
+            <div className="space-y-4">
             <section className="grid grid-cols-2 gap-3">
                 <div className="rounded-[20px] border border-white/6 bg-[#181d27] px-4 py-4 shadow-[0_12px_28px_rgba(0,0,0,0.22)]">
                     <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#102b35] text-[#29c7d8]">
@@ -586,11 +590,13 @@ export default function StudentDashboard() {
                     </div>
                 )}
             </section>
+            </div>
         </div>
     );
 
     const renderHistoryTab = () => (
-        <div className="space-y-4 animate-fade-in">
+        <div className="space-y-4 animate-fade-in lg:grid lg:grid-cols-[0.84fr_1.16fr] lg:gap-5 lg:space-y-0">
+            <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <button
@@ -657,6 +663,9 @@ export default function StudentDashboard() {
                 ))}
             </div>
 
+            </div>
+
+            <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <h3 className="text-base font-semibold text-white">Recent Sessions</h3>
                 <span className="text-[11px] font-medium text-slate-500">
@@ -743,11 +752,13 @@ export default function StudentDashboard() {
                     </button>
                 </div>
             </div>
+            </div>
         </div>
     );
 
     const renderProfileTab = () => (
-        <div className="space-y-4 animate-fade-in">
+        <div className="space-y-4 animate-fade-in lg:grid lg:grid-cols-[0.82fr_1.18fr] lg:gap-5 lg:space-y-0">
+            <div className="space-y-4">
             <div className="rounded-[22px] border border-white/6 bg-[#141925] px-4 py-4">
                 <div className="flex items-start justify-between gap-3">
                     <div>
@@ -904,32 +915,93 @@ export default function StudentDashboard() {
                 <SignOut size={18} />
                 Logout
             </button>
+            </div>
+
+            <div className="space-y-4">
+                {!isEditingProfile && (
+                    <div className="rounded-[24px] border border-white/6 bg-[#171b24] p-5 shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div className="rounded-[20px] border border-white/6 bg-[#141925] p-4">
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Profile status</p>
+                                <p className="mt-3 text-2xl font-semibold text-white">
+                                    {isProfileComplete ? "Ready for class" : "Needs update"}
+                                </p>
+                                <p className="mt-2 text-sm text-slate-400">
+                                    Keep your details current so attendance verification stays smooth across devices.
+                                </p>
+                            </div>
+                            <div className="rounded-[20px] border border-cyan-400/15 bg-[linear-gradient(180deg,rgba(12,81,97,0.95),rgba(16,27,37,0.95))] p-4">
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-cyan-100/75">Quick action</p>
+                                <p className="mt-3 text-2xl font-semibold text-white">Need to change something?</p>
+                                <p className="mt-2 text-sm text-cyan-50/70">
+                                    Open edit mode to update your name, registration, branch, semester, or mobile number.
+                                </p>
+                                <button
+                                    onClick={() => setIsEditingProfile(true)}
+                                    className="mt-4 rounded-[16px] bg-[#2fe4ff] px-4 py-3 text-sm font-semibold text-[#06222b]"
+                                >
+                                    Edit Profile
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 
     return (
         <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(23,34,56,0.92),rgba(5,8,18,1)_55%)] text-slate-200">
-            <main className="mx-auto min-h-screen w-full max-w-md px-4 pb-28 pt-5">
+            <main className="mx-auto min-h-screen w-full max-w-7xl px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:pb-10">
                 <section className="mb-6">
-                    <div className="flex items-center justify-between rounded-[22px] border border-white/6 bg-[#171b24]/96 px-3 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.2)]">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#121720]">
-                            <Lightning size={20} weight="fill" />
+                    <div className="flex items-center justify-between rounded-[22px] border border-white/6 bg-[#171b24]/96 px-3 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.2)] lg:px-5 lg:py-4">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#121720]">
+                                <Lightning size={20} weight="fill" />
+                            </div>
+                            <div className="hidden lg:block">
+                                <p className="text-sm font-semibold text-white">Student Dashboard</p>
+                                <p className="mt-1 text-xs text-slate-500">Track live attendance, history, and profile in one place.</p>
+                            </div>
                         </div>
-                        <button
-                            onClick={() => setActiveTab("profile")}
-                            className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition hover:bg-white/[0.04] hover:text-white cursor-pointer"
-                        >
-                            <GearSix size={18} weight="bold" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <div className="hidden lg:flex items-center gap-2 rounded-2xl border border-white/6 bg-[#121722] p-1">
+                                <button
+                                    onClick={() => setActiveTab("home")}
+                                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "home" ? "bg-[#29d8ff] text-[#04131f]" : "text-slate-400 hover:text-white"}`}
+                                >
+                                    Home
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab("history")}
+                                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "history" ? "bg-[#29d8ff] text-[#04131f]" : "text-slate-400 hover:text-white"}`}
+                                >
+                                    History
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab("profile")}
+                                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "profile" ? "bg-[#29d8ff] text-[#04131f]" : "text-slate-400 hover:text-white"}`}
+                                >
+                                    Profile
+                                </button>
+                            </div>
+                            <button
+                                onClick={() => setActiveTab("profile")}
+                                className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition hover:bg-white/[0.04] hover:text-white cursor-pointer"
+                            >
+                                <GearSix size={18} weight="bold" />
+                            </button>
+                        </div>
                     </div>
                 </section>
 
                 {activeTab === "home" && (
-                    <section className="mb-6">
-                        <h1 className="text-[32px] font-semibold leading-none text-white">
+                    <section className="mb-6 lg:flex lg:items-end lg:justify-between">
+                        <div>
+                        <h1 className="text-[32px] font-semibold leading-none text-white lg:text-[42px]">
                             Hi, {user?.name?.split(" ")[0] || "Student"}
                         </h1>
-                        <p className="mt-2 text-sm text-slate-400">Let&apos;s get you marked for today&apos;s classes.</p>
+                        <p className="mt-2 text-sm text-slate-400 lg:text-base">Let&apos;s get you marked for today&apos;s classes.</p>
                         <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
                             <span className="rounded-full bg-white/5 px-2.5 py-1">{formatShortDate(new Date())}</span>
                             <span className="rounded-full bg-white/5 px-2.5 py-1">
@@ -942,6 +1014,22 @@ export default function StudentDashboard() {
                                             : "Checking location"}
                             </span>
                         </div>
+                        </div>
+
+                        <div className="mt-4 hidden gap-3 lg:grid lg:grid-cols-3">
+                            <div className="rounded-[18px] border border-white/6 bg-[#141925] px-4 py-3">
+                                <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Attendance</p>
+                                <p className="mt-2 text-2xl font-semibold text-white">{attendancePercentage}%</p>
+                            </div>
+                            <div className="rounded-[18px] border border-white/6 bg-[#141925] px-4 py-3">
+                                <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Attended</p>
+                                <p className="mt-2 text-2xl font-semibold text-white">{attendedSessions}</p>
+                            </div>
+                            <div className="rounded-[18px] border border-white/6 bg-[#141925] px-4 py-3">
+                                <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Missed</p>
+                                <p className="mt-2 text-2xl font-semibold text-white">{absentSessions}</p>
+                            </div>
+                        </div>
                     </section>
                 )}
 
@@ -952,7 +1040,7 @@ export default function StudentDashboard() {
 
             {showScanner && <QRScanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
 
-            <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-5">
+            <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-5 lg:hidden">
                 <div className="mx-auto flex w-full max-w-md items-center justify-between rounded-[24px] border border-white/6 bg-[#0e1320]/94 px-5 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl">
                     <button
                         onClick={() => setActiveTab("home")}
