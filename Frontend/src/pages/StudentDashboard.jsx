@@ -426,86 +426,85 @@ export default function StudentDashboard() {
                             </span>
                         </div>
 
-                        <div className="mt-8 rounded-[30px] border border-emerald-500/30 bg-[linear-gradient(180deg,rgba(4,31,40,0.98),rgba(7,27,40,0.98))] p-6 shadow-[0_22px_50px_rgba(0,0,0,0.24)]">
-                            <div className="flex items-center justify-between gap-3">
-                                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/14 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-300">
-                                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
+                        <div className="mt-6 rounded-2xl border border-emerald-500/30 bg-[linear-gradient(180deg,rgba(4,31,40,0.98),rgba(7,27,40,0.98))] p-4 shadow-lg">
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/14 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300">
+                                    <span className="h-2 w-2 rounded-full bg-emerald-300" />
                                     Active Session
                                 </span>
-                                <span className="text-sm font-medium text-slate-400">Open Attendance to mark attendance</span>
+                                <span className="text-xs font-medium text-slate-400">Open Attendance to mark</span>
                             </div>
 
                             <div className="mt-4">
-                                <h2 className="text-2xl font-semibold text-white">{activeSession?.subject || "No active session"}</h2>
-                                <p className="mt-2 text-xl text-slate-300">{activeSession ? getTeacherName(activeSession) : "Session details unavailable"}</p>
-                                <p className="mt-1 text-sm text-slate-400">{activeSession?.location ? "Campus geofence enabled" : "Session details unavailable"}</p>
-                                <p className="mt-1 text-base text-slate-400">Code {activeSession?.sessionCode || getHistoryCode(recentSessions[0])}</p>
+                                <h2 className="text-xl font-semibold text-white">{activeSession?.subject || "No active session"}</h2>
+                                <p className="mt-1 text-base text-slate-300">{activeSession ? getTeacherName(activeSession) : "Session details unavailable"}</p>
+                                <p className="mt-1 text-xs text-slate-400">{activeSession?.location ? "Campus geofence enabled" : "Session details unavailable"}</p>
+                                <p className="mt-1 text-sm text-slate-400">Code {activeSession?.sessionCode || getHistoryCode(recentSessions[0])}</p>
                             </div>
 
-                            <div className="mt-6 flex items-center justify-between gap-4">
+                            <div className="mt-5 flex items-center justify-between gap-3">
                                 <div className="flex -space-x-2">
                                     {["A", "B", "C", "D"].map((label, index) => (
                                         <span
                                             key={label}
-                                            className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#08232d] text-[10px] font-semibold text-white ${index === 0 ? "bg-[#f59e0b]" : index === 1 ? "bg-[#ec4899]" : index === 2 ? "bg-[#4f7cff]" : "bg-[#0fb6b9]"
+                                            className={`flex h-5 w-5 items-center justify-center rounded-full border-2 border-[#08232d] text-[9px] font-semibold text-white ${index === 0 ? "bg-[#f59e0b]" : index === 1 ? "bg-[#ec4899]" : index === 2 ? "bg-[#4f7cff]" : "bg-[#0fb6b9]"
                                                 }`}
                                         >
                                             {label}
                                         </span>
                                     ))}
                                 </div>
-                                <p className="text-lg text-slate-300">{activeSession?.totalMarked || 0} check-ins tracked</p>
+                                <p className="text-sm text-slate-300">{activeSession?.totalMarked || 0} check-ins tracked</p>
                             </div>
                         </div>
 
                         <button
                             onClick={() => setActiveTab("attendance")}
-                            className="mt-6 w-full rounded-2xl bg-[#2da8e7] px-5 py-5 text-center shadow-[0_15px_30px_rgba(45,168,231,0.25)]"
+                            className="mt-4 w-full rounded-xl bg-[#2da8e7] px-4 py-3 text-center shadow-md"
                         >
-                            <div className="flex items-center justify-center gap-2 text-base font-semibold text-[#05131d]">
-                                <CheckCircle size={20} weight="fill" />
+                            <div className="flex items-center justify-center gap-2 text-sm font-semibold text-[#05131d]">
+                                <CheckCircle size={18} weight="fill" />
                                 Mark Attendance
                             </div>
-                            <p className="mt-2 text-xs text-[#083047]">Click to open the attendance page and mark attendance.</p>
                         </button>
                     </div>
                     <div className="space-y-6">
-                        <div className="grid grid-cols-3 gap-3">
-                            <div className="rounded-2xl border border-white/8 bg-[#171d2a] p-4">
-                                <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Attendance</p>
-                                <p className="mt-3 text-3xl font-semibold text-white">{attendancePercentage}%</p>
+                        <div className="grid grid-cols-3 gap-2">
+                            <div className="rounded-xl border border-white/8 bg-[#171d2a] p-3">
+                                <p className="text-[9px] uppercase tracking-[0.1em] text-slate-500">Attendance</p>
+                                <p className="mt-1 text-2xl font-semibold text-white">{attendancePercentage}%</p>
                             </div>
-                            <div className="rounded-2xl border border-white/8 bg-[#171d2a] p-4">
-                                <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Attended</p>
-                                <p className="mt-3 text-3xl font-semibold text-white">{attendedSessions}</p>
+                            <div className="rounded-xl border border-white/8 bg-[#171d2a] p-3">
+                                <p className="text-[9px] uppercase tracking-[0.1em] text-slate-500">Attended</p>
+                                <p className="mt-1 text-2xl font-semibold text-white">{attendedSessions}</p>
                             </div>
-                            <div className="rounded-2xl border border-white/8 bg-[#171d2a] p-4">
-                                <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Missed</p>
-                                <p className="mt-3 text-3xl font-semibold text-white">{absentSessions}</p>
+                            <div className="rounded-xl border border-white/8 bg-[#171d2a] p-3">
+                                <p className="text-[9px] uppercase tracking-[0.1em] text-slate-500">Missed</p>
+                                <p className="mt-1 text-2xl font-semibold text-white">{absentSessions}</p>
                             </div>
                         </div>
 
-                        <div className="grid gap-3 md:grid-cols-2">
-                            <div className="rounded-2xl border border-white/8 bg-[#171d2a] p-5">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#123341] text-[#32d7ff]">
-                                    <Clock size={20} />
+                        <div className="grid gap-2 md:grid-cols-2">
+                            <div className="rounded-xl border border-white/8 bg-[#171d2a] p-4">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#123341] text-[#32d7ff]">
+                                    <Clock size={16} />
                                 </div>
-                                <p className="mt-4 text-3xl font-semibold text-white">
+                                <p className="mt-2 text-2xl font-semibold text-white">
                                     {attendedSessions}/{Math.max(totalSessions, attendedSessions || 1)}
                                 </p>
-                                <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">This Week</p>
+                                <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">This Week</p>
                             </div>
 
-                            <div className="rounded-2xl border border-white/8 bg-[#171d2a] p-5">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#123341] text-[#6be8ff]">
-                                    <TrendUp size={20} />
+                            <div className="rounded-xl border border-white/8 bg-[#171d2a] p-4">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#123341] text-[#6be8ff]">
+                                    <TrendUp size={16} />
                                 </div>
-                                <div className="mt-4 flex items-center justify-between gap-4">
+                                <div className="mt-2 flex items-center justify-between gap-3">
                                     <div>
-                                        <p className="text-3xl font-semibold text-white">{attendancePercentage}%</p>
-                                        <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Attendance</p>
+                                        <p className="text-2xl font-semibold text-white">{attendancePercentage}%</p>
+                                        <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">Attendance</p>
                                     </div>
-                                    <span className="rounded-full bg-white/8 px-3 py-1 text-xs text-slate-300">{absentSessions} absent</span>
+                                    <span className="rounded-full bg-white/8 px-2 py-1 text-[10px] text-slate-300">{absentSessions} absent</span>
                                 </div>
                             </div>
                         </div>
@@ -528,19 +527,19 @@ export default function StudentDashboard() {
                                     </div>
                                 ) : (
                                     recentSessions.slice(0, 2).map((record) => (
-                                        <div key={record._id} className="rounded-[28px] border border-white/8 bg-[#171d2a] p-5">
-                                            <div className="flex items-center justify-between gap-4">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-slate-300">
-                                                        <Clock size={18} />
+                                        <div key={record._id} className="rounded-xl border border-white/8 bg-[#171d2a] p-3">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-slate-300">
+                                                        <Clock size={14} />
                                                     </div>
                                                     <div>
-                                                        <p className="text-xl font-semibold text-white">{record.sessionId?.subject || "Unknown"}</p>
-                                                        <p className="mt-1 text-xs text-slate-400">{formatDateTime(record.timestamp || record.sessionId?.startTime)}</p>
-                                                        <p className="mt-1 text-xs text-slate-500">Code {getHistoryCode(record)}</p>
+                                                        <p className="text-base font-semibold text-white">{record.sessionId?.subject || "Unknown"}</p>
+                                                        <p className="text-[10px] text-slate-400">{formatDateTime(record.timestamp || record.sessionId?.startTime)}</p>
+                                                        <p className="text-[10px] text-slate-500">{record.status?.trim().toLowerCase() === 'absent' ? "Missed Session" : `Code ${getHistoryCode(record)}`}</p>
                                                     </div>
                                                 </div>
-                                                <span className={`rounded-full px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] ${record.status?.toLowerCase() === 'absent' ? "bg-red-500/14 text-red-400" : "bg-emerald-500/14 text-emerald-300"}`}>
+                                                <span className={`rounded-full px-3 py-1 text-[9px] font-semibold uppercase tracking-[0.15em] ${record.status?.trim().toLowerCase() === 'absent' ? "bg-red-500/15 text-red-400" : "bg-emerald-500/14 text-emerald-300"}`}>
                                                     {record.status}
                                                 </span>
                                             </div>
@@ -595,28 +594,28 @@ export default function StudentDashboard() {
                             <p className="text-[12px] font-semibold uppercase tracking-[0.32em] text-slate-500">Statistics</p>
 
                             <div className="mt-5 grid gap-4 md:grid-cols-3 xl:grid-cols-1">
-                                <div className="rounded-[28px] border border-cyan-500/30 bg-[linear-gradient(180deg,rgba(23,118,132,0.95),rgba(18,106,121,0.95))] p-5">
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-[#b6f3ff]">
-                                        <TrendUp size={24} />
+                                <div className="rounded-xl border border-cyan-500/30 bg-[linear-gradient(180deg,rgba(23,118,132,0.9),rgba(18,106,121,0.9))] p-4">
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-[#b6f3ff]">
+                                        <TrendUp size={16} />
                                     </div>
-                                    <p className="mt-3 text-3xl font-semibold text-white">{attendancePercentage}%</p>
-                                    <p className="mt-2 text-[13px] font-semibold uppercase tracking-[0.28em] text-cyan-50/80">Attendance</p>
+                                    <p className="mt-2 text-2xl font-semibold text-white">{attendancePercentage}%</p>
+                                    <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-cyan-50/80">Attendance</p>
                                 </div>
 
-                                <div className="rounded-[28px] border border-white/8 bg-[#171d2a] p-5">
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.05] text-slate-300">
-                                        <CalendarBlank size={22} />
+                                <div className="rounded-xl border border-white/8 bg-[#171d2a] p-4">
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.05] text-slate-300">
+                                        <CalendarBlank size={16} />
                                     </div>
-                                    <p className="mt-3 text-3xl font-semibold text-white">{streakValue} Days</p>
-                                    <p className="mt-2 text-[13px] font-semibold uppercase tracking-[0.28em] text-slate-500">Streak</p>
+                                    <p className="mt-2 text-2xl font-semibold text-white">{streakValue} Days</p>
+                                    <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">Streak</p>
                                 </div>
 
-                                <div className="rounded-[28px] border border-white/8 bg-[#171d2a] p-5">
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.05] text-slate-300">
-                                        <Clock size={22} />
+                                <div className="rounded-xl border border-white/8 bg-[#171d2a] p-4">
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.05] text-slate-300">
+                                        <Clock size={16} />
                                     </div>
-                                    <p className="mt-3 text-3xl font-semibold text-white">{absentSessions}</p>
-                                    <p className="mt-2 text-[13px] font-semibold uppercase tracking-[0.28em] text-slate-500">Missed</p>
+                                    <p className="mt-2 text-2xl font-semibold text-white">{absentSessions}</p>
+                                    <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">Missed</p>
                                 </div>
                             </div>
                         </div>
@@ -627,8 +626,8 @@ export default function StudentDashboard() {
                                     key={chip.key}
                                     onClick={() => setHistoryFilter(chip.key)}
                                     className={`rounded-full px-5 py-3 text-sm font-semibold transition ${historyFilter === chip.key
-                                            ? "bg-[#2dc6ef] text-[#07131d]"
-                                            : "border border-white/8 bg-[#171d2a] text-slate-400"
+                                        ? "bg-[#2dc6ef] text-[#07131d]"
+                                        : "border border-white/8 bg-[#171d2a] text-slate-400"
                                         }`}
                                 >
                                     {chip.label}
@@ -658,43 +657,46 @@ export default function StudentDashboard() {
                                     <div key={group.key}>
                                         <p className="text-[15px] font-semibold uppercase tracking-[0.28em] text-slate-500">{group.title}</p>
 
-                                        <div className="mt-5 space-y-5 border-l border-white/10 pl-8">
-                                            {group.records.map((record) => (
-                                                <div key={record._id} className="relative rounded-[30px] border border-white/8 bg-[#171d2a] p-6 shadow-[0_18px_40px_rgba(0,0,0,0.14)]">
-                                                    <span className="absolute -left-[41px] top-4 h-3.5 w-3.5 rounded-full bg-slate-500" />
+                                        <div className="mt-5 space-y-4 border-l border-white/10 pl-6">
+                                            {group.records.map((record) => {
+                                                const isAbsent = record.status?.trim().toLowerCase() === 'absent';
+                                                return (
+                                                    <div key={record._id} className="relative rounded-xl border border-white/8 bg-[#171d2a] p-4 shadow-sm">
+                                                        <span className="absolute -left-[27px] top-4 h-2 w-2 rounded-full bg-slate-500" />
 
-                                                    <div className="flex items-start justify-between gap-4">
-                                                        <div>
-                                                            <h3 className="text-xl font-semibold text-white">{record.sessionId?.subject || "Unknown subject"}</h3>
-                                                            <p className="mt-1 text-sm text-slate-400">{getTeacherName(record.sessionId)}</p>
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            <div>
+                                                                <h3 className="text-lg font-semibold text-white">{record.sessionId?.subject || "Unknown subject"}</h3>
+                                                                <p className="text-xs text-slate-400">{getTeacherName(record.sessionId)}</p>
+                                                            </div>
+                                                            <span className={`rounded-full px-3 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] ${isAbsent ? "bg-red-500/15 text-red-400" : "bg-emerald-500/14 text-emerald-300"}`}>
+                                                                {record.status}
+                                                            </span>
                                                         </div>
-                                                        <span className={`rounded-full px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] ${record.status?.toLowerCase() === 'absent' ? "bg-red-500/14 text-red-400" : "bg-emerald-500/14 text-emerald-300"}`}>
-                                                            {record.status}
-                                                        </span>
-                                                    </div>
 
-                                                    <div className="mt-6 grid gap-4 text-base text-slate-400 md:grid-cols-2">
-                                                        <div className="flex items-center gap-3">
-                                                            <Clock size={18} />
-                                                            <span>{formatTime(record.timestamp || record.sessionId?.startTime)}</span>
+                                                        <div className="mt-4 grid gap-2 text-xs text-slate-400 md:grid-cols-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <Clock size={16} />
+                                                                <span>{formatTime(record.timestamp || record.sessionId?.startTime)}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <MapPin size={16} />
+                                                                <span>{isAbsent ? "Missed Session" : `Code ${getHistoryCode(record)}`}</span>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <MapPin size={18} />
-                                                            <span>Code {getHistoryCode(record)}</span>
-                                                        </div>
-                                                    </div>
 
-                                                    <div className="mt-6 flex items-center justify-between border-t border-white/8 pt-5">
-                                                        <p className="text-sm text-slate-500">Captured via active session</p>
-                                                        <button
-                                                            onClick={() => setActiveTab("attendance")}
-                                                            className="text-[18px] font-semibold text-[#33cfff]"
-                                                        >
-                                                            Details
-                                                        </button>
+                                                        <div className="mt-4 flex items-center justify-between border-t border-white/8 pt-3">
+                                                            <p className="text-[10px] text-slate-500">{isAbsent ? "You did not attend" : "Recorded"}</p>
+                                                            <button
+                                                                onClick={() => setActiveTab("attendance")}
+                                                                className="text-xs font-semibold text-[#33cfff]"
+                                                            >
+                                                                Details
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 ))}
