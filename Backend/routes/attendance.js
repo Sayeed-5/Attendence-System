@@ -7,89 +7,120 @@ const User = require("../models/User");
 const { verifyToken } = require("../middleware/auth");
 
 /**
- * Haversine formula — returns distance in meters
+ * Haversine formula - returns distance in meters
  */
 function getDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371e3;
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+  const earthRadius = 6371e3;
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
 
   const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) *
+      Math.cos(phi2) *
+      Math.sin(deltaLambda / 2) *
+      Math.sin(deltaLambda / 2);
 
-  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  return earthRadius * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+function getSessionEndTime(session) {
+  if (session.endTime) {
+    return new Date(session.endTime);
+  }
+
+  const durationMinutes =
+    Number.isFinite(Number(session.timeLimit)) && Number(session.timeLimit) > 0
+      ? Number(session.timeLimit)
+      : 60;
+
+  return new Date(new Date(session.startTime).getTime() + durationMinutes * 60 * 1000);
+}
+
+function isSessionActiveNow(session, now = new Date()) {
+  const startTime = new Date(session.startTime);
+  const endTime = getSessionEndTime(session);
+
+  return Boolean(session.isActive) && now >= startTime && now <= endTime;
 }
 
 /**
  * POST /api/attendance/mark
- * Student marks attendance for a session
+ * Student marks attendance for an active session
  */
 router.post("/mark", verifyToken, async (req, res) => {
   try {
     const { sessionId, lat, lng, deviceId } = req.body;
 
-    // Get the student from Firebase auth
     const student = await User.findOne({ firebaseUid: req.firebaseUser.uid });
     if (!student || student.role !== "student") {
       return res.status(403).json({ msg: "Only students can mark attendance" });
     }
 
-    // Get the session
     const session = await Session.findById(sessionId);
     if (!session) {
       return res.status(404).json({ msg: "Session not found" });
     }
 
-    // Check if session is active
-    if (!session.isActive) {
-      return res.status(400).json({ msg: "Session is no longer active" });
+    const now = new Date();
+    if (!isSessionActiveNow(session, now)) {
+      if (session.isActive && getSessionEndTime(session) < now) {
+        session.isActive = false;
+        await session.save();
+      }
+
+      return res.status(400).json({
+        success: false,
+        msg: "Session is not active right now",
+      });
     }
 
-    // Check for duplicate
     const existing = await Attendance.findOne({
       studentId: student._id,
       sessionId,
     });
     if (existing) {
-      return res.status(400).json({ msg: "Attendance already marked" });
+      return res.status(400).json({
+        success: false,
+        msg: "Attendance already marked",
+      });
     }
 
-    let flags = [];
+    const numericLat = Number(lat);
+    const numericLng = Number(lng);
+    if (!Number.isFinite(numericLat) || !Number.isFinite(numericLng)) {
+      return res.status(400).json({
+        success: false,
+        msg: "Location is required to mark attendance",
+      });
+    }
+
+    const distance = getDistance(
+      numericLat,
+      numericLng,
+      session.location.lat,
+      session.location.lng
+    );
+    const allowedRadius = session.radius || 100;
+    if (distance > allowedRadius) {
+      return res.status(400).json({
+        success: false,
+        msg: "You are outside the allowed attendance radius",
+      });
+    }
+
+    const flags = [];
     let score = 100;
-    const now = new Date();
 
-    // Time check removed since sessions do not have a set timer
-
-    // Distance check — is the student within the allowed radius?
-    if (lat != null && lng != null) {
-      const distance = getDistance(
-        lat,
-        lng,
-        session.location.lat,
-        session.location.lng
-      );
-
-      // Enforce a minimum radius of 100m even for existing active sessions to prevent 50m drift failures
-      const effectiveRadius = Math.max(session.radius || 100, 100);
-      if (distance > effectiveRadius) {
-        return res.status(400).json({ msg: "You are outside the college campus and cannot mark attendance." });
-      }
-    } else {
-      return res.status(400).json({ msg: "Location is required to mark attendance." });
-    }
-
-    // Track device ID — flag if a device has been used by another student in this session
     if (deviceId) {
       const sameDevice = await Attendance.findOne({ sessionId, deviceId });
       if (sameDevice && sameDevice.studentId.toString() !== student._id.toString()) {
         flags.push("SHARED_DEVICE");
-        score -= 40; // Reduced score by 40 to ensure it falls below 70 and gets properly flagged
+        score -= 40;
       }
 
-      // Store device ID for future checks
       if (!student.deviceIds.includes(deviceId)) {
         student.deviceIds.push(deviceId);
         await student.save();
@@ -104,7 +135,7 @@ router.post("/mark", verifyToken, async (req, res) => {
       studentName: student.name,
       studentEmail: student.email,
       timestamp: now,
-      location: { lat, lng },
+      location: { lat: numericLat, lng: numericLng },
       deviceId: deviceId || "",
       score,
       status,
@@ -113,11 +144,12 @@ router.post("/mark", verifyToken, async (req, res) => {
 
     res.json({
       success: true,
+      status,
       attendance,
       message:
         status === "present"
-          ? "✅ Attendance marked successfully!"
-          : "⚠️ Attendance marked with flags",
+          ? "Attendance marked successfully"
+          : "Attendance marked with flags",
     });
   } catch (err) {
     console.error("Mark attendance error:", err.message);
@@ -222,49 +254,46 @@ router.get("/teacher/stats", verifyToken, async (req, res) => {
     const teacher = await User.findOne({ firebaseUid: req.firebaseUser.uid });
     if (!teacher) return res.status(404).json({ msg: "User not found" });
 
-    // Total students in system
     const totalStudents = await User.countDocuments({ role: "student" });
-
-    // Total sessions by this teacher
     const sessions = await Session.find({ teacherId: teacher._id }).sort({ createdAt: -1 });
     const totalSessions = sessions.length;
 
     let totalAttendancePercentage = 0;
     const trendData = [];
-
-    // Analyze the recent 5 sessions for trends
     const recentSessions = sessions.slice(0, 5).reverse();
 
     for (const session of recentSessions) {
-      const attendees = await Attendance.countDocuments({ 
+      const attendees = await Attendance.countDocuments({
         sessionId: session._id,
-        status: { $in: ["present", "flagged"] }
+        status: { $in: ["present", "flagged"] },
       });
-      
-      const sessionPct = totalStudents === 0 ? 0 : Math.round((attendees / totalStudents) * 100);
-      
+
+      const sessionPct =
+        totalStudents === 0 ? 0 : Math.round((attendees / totalStudents) * 100);
+
       trendData.push({
-        label: session.subject.substring(0, 5) + " " + new Date(session.createdAt).getDate(),
+        label: `${session.subject.substring(0, 5)} ${new Date(session.createdAt).getDate()}`,
         percentage: sessionPct,
-        attendees
+        attendees,
       });
     }
 
-    // Calculate overall average based on ALL sessions
     if (totalSessions > 0 && totalStudents > 0) {
-        const allAttendees = await Attendance.countDocuments({
-            sessionId: { $in: sessions.map(s => s._id) },
-            status: { $in: ["present", "flagged"] }
-        });
-        const maxPossibleAttendees = totalSessions * totalStudents;
-        totalAttendancePercentage = Math.round((allAttendees / maxPossibleAttendees) * 100);
+      const allAttendees = await Attendance.countDocuments({
+        sessionId: { $in: sessions.map((session) => session._id) },
+        status: { $in: ["present", "flagged"] },
+      });
+      const maxPossibleAttendees = totalSessions * totalStudents;
+      totalAttendancePercentage = Math.round(
+        (allAttendees / maxPossibleAttendees) * 100
+      );
     }
 
     res.json({
       totalStudents,
       totalSessions,
       overallAvgPercentage: totalAttendancePercentage,
-      trendData
+      trendData,
     });
   } catch (err) {
     console.error("Teacher stats error:", err);
@@ -282,33 +311,33 @@ router.get("/student/stats", verifyToken, async (req, res) => {
     if (!student) return res.status(404).json({ msg: "User not found" });
 
     const totalSessions = await Session.countDocuments({});
-    
     const attendedSessions = await Attendance.countDocuments({
       studentId: student._id,
-      status: { $in: ["present", "flagged"] }
+      status: { $in: ["present", "flagged"] },
     });
 
-    const percentage = totalSessions === 0 ? 0 : Math.round((attendedSessions / totalSessions) * 100);
+    const percentage =
+      totalSessions === 0 ? 0 : Math.round((attendedSessions / totalSessions) * 100);
 
-    // Calculate streak — consecutive sessions attended (most recent first)
     const allSessions = await Session.find({}).sort({ startTime: -1 }).lean();
     const studentAttendance = await Attendance.find({
       studentId: student._id,
-      status: { $in: ["present", "flagged"] }
+      status: { $in: ["present", "flagged"] },
     }).lean();
 
-    const attendedSessionIds = new Set(studentAttendance.map(a => a.sessionId.toString()));
+    const attendedSessionIds = new Set(
+      studentAttendance.map((attendance) => attendance.sessionId.toString())
+    );
 
     let streak = 0;
     for (const session of allSessions) {
       if (attendedSessionIds.has(session._id.toString())) {
-        streak++;
+        streak += 1;
       } else {
         break;
       }
     }
 
-    // Check if student attended today
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date();
@@ -317,21 +346,24 @@ router.get("/student/stats", verifyToken, async (req, res) => {
     const todayAttendance = await Attendance.findOne({
       studentId: student._id,
       timestamp: { $gte: todayStart, $lte: todayEnd },
-      status: { $in: ["present", "flagged"] }
+      status: { $in: ["present", "flagged"] },
     }).lean();
 
     const checkedInToday = !!todayAttendance;
+    const now = new Date();
+    const activeSessions = await Session.find({
+      isActive: true,
+      startTime: { $lte: now },
+      endTime: { $gte: now },
+    }).lean();
 
-    // Find active sessions right now
-    const activeSessions = await Session.find({ isActive: true }).lean();
-
-    res.json({ 
-      totalSessions, 
-      attendedSessions, 
-      percentage, 
+    res.json({
+      totalSessions,
+      attendedSessions,
+      percentage,
       streak,
       checkedInToday,
-      activeSessionCount: activeSessions.length
+      activeSessionCount: activeSessions.length,
     });
   } catch (err) {
     res.status(500).json({ msg: "Server error" });
@@ -403,26 +435,27 @@ router.get("/export/:sessionId", verifyToken, async (req, res) => {
 
     const session = await Session.findById(req.params.sessionId);
 
-    // Build CSV manually (simple approach, no library dependency issues)
     const headers = "Name,Email,Reg No,Branch,Time,Status,Score,Flags\n";
     const rows = records
-      .map((r) => {
-        const student = r.studentId || {};
+      .map((record) => {
+        const student = record.studentId || {};
         return [
-          `"${student.name || r.studentName || ""}"`,
-          `"${student.email || r.studentEmail || ""}"`,
+          `"${student.name || record.studentName || ""}"`,
+          `"${student.email || record.studentEmail || ""}"`,
           `"${student.regNo || ""}"`,
           `"${student.branch || ""}"`,
-          `"${new Date(r.timestamp).toLocaleString()}"`,
-          r.status,
-          r.score,
-          `"${(r.flags || []).join(", ")}"`,
+          `"${new Date(record.timestamp).toLocaleString()}"`,
+          record.status,
+          record.score,
+          `"${(record.flags || []).join(", ")}"`,
         ].join(",");
       })
       .join("\n");
 
     const csv = headers + rows;
-    const filename = `attendance_${session ? session.subject : "export"}_${new Date().toISOString().slice(0, 10)}.csv`;
+    const filename = `attendance_${
+      session ? session.subject : "export"
+    }_${new Date().toISOString().slice(0, 10)}.csv`;
 
     res.setHeader("Content-Type", "text/csv");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);

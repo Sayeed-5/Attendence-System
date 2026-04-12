@@ -222,7 +222,7 @@ export default function TeacherDashboard() {
         setCreating(true);
         try {
             const res = await api.post("/session/create", { subject });
-            toast.success("Session created! Show the QR code to students.");
+            toast.success("Session created! Students can now see it on their dashboard.");
             setActiveSession(res.data);
             setShowCreate(false);
             setSubject("");
@@ -353,7 +353,7 @@ export default function TeacherDashboard() {
                         <div className="rounded-[24px] border border-indigo-400/12 bg-[linear-gradient(180deg,rgba(29,37,76,0.95),rgba(22,24,45,0.95))] p-4">
                             <p className="text-sm font-semibold text-white">Pending Requests</p>
                             <p className="mt-1 text-xs text-slate-400">
-                                Manual attendance reviews for missed QR scans can be handled from session detail.
+                                Manual attendance reviews for missed check-ins can be handled from session detail.
                             </p>
                             <button
                                 onClick={() => navigate(`/session/${activeSession._id}`)}
@@ -386,7 +386,7 @@ export default function TeacherDashboard() {
                             <div>
                                 <p className="text-lg font-semibold text-white">Create a new attendance session</p>
                                 <p className="mt-1 text-sm text-slate-400">
-                                    Start a live QR-based session for your current class without changing the backend flow.
+                                    Start a live attendance session and let students mark attendance from the active session card.
                                 </p>
                             </div>
                             <button
@@ -403,7 +403,7 @@ export default function TeacherDashboard() {
                                 <div>
                                     <h3 className="text-lg font-semibold text-white">New Session</h3>
                                     <p className="mt-1 text-sm text-slate-400">
-                                        Enter a subject name and the session will start instantly with a live QR.
+                                        Enter a subject name and the session will start instantly for students.
                                     </p>
                                 </div>
                                 <button

@@ -2,48 +2,32 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
-import QRScanner from "../components/QRScanner";
 import toast from "react-hot-toast";
 import {
-    ArrowLeft,
     BookBookmark,
     Buildings,
     CheckCircle,
-    Clock,
     ClockCounterClockwise,
-    FunnelSimple,
     GearSix,
     House,
     IdentificationCard,
     Lightning,
     MapPin,
     Phone,
-    QrCode,
-    CalendarBlank,
-    ChartLineUp,
     SignOut,
     SpinnerGap,
-    TrendUp,
     User as UserIcon,
     Warning,
 } from "@phosphor-icons/react";
 
-const COLLEGE_LAT = 20.217426;
-const COLLEGE_LNG = 85.682104;
-const MAX_RADIUS = 100;
-
 function getDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371e3;
-    const phi1 = (lat1 * Math.PI) / 180;
-    const phi2 = (lat2 * Math.PI) / 180;
-    const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
-    const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
-
-    const a =
-        Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-        Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-
-    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+    const r = 6371e3;
+    const p1 = (lat1 * Math.PI) / 180;
+    const p2 = (lat2 * Math.PI) / 180;
+    const dp = ((lat2 - lat1) * Math.PI) / 180;
+    const dl = ((lon2 - lon1) * Math.PI) / 180;
+    const a = Math.sin(dp / 2) * Math.sin(dp / 2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+    return r * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
 function formatDateTime(value) {
@@ -56,45 +40,7 @@ function formatDateTime(value) {
     });
 }
 
-function formatShortDate(value) {
-    if (!value) return "Today";
-    return new Date(value).toLocaleDateString("en-IN", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-    });
-}
-
-function getDayKey(value) {
-    if (!value) return "";
-    const date = new Date(value);
-    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-}
-
-function formatDayHeading(value) {
-    if (!value) return "Recent";
-    const date = new Date(value);
-    const today = new Date();
-    const yesterday = new Date();
-    yesterday.setDate(today.getDate() - 1);
-
-    const currentKey = getDayKey(date);
-    if (currentKey === getDayKey(today)) {
-        return `Today, ${date.toLocaleDateString("en-IN", { day: "numeric", month: "short" }).toUpperCase()}`;
-    }
-
-    if (currentKey === getDayKey(yesterday)) {
-        return `Yesterday, ${date.toLocaleDateString("en-IN", { day: "numeric", month: "short" }).toUpperCase()}`;
-    }
-
-    return date.toLocaleDateString("en-IN", {
-        weekday: "long",
-        day: "numeric",
-        month: "short",
-    }).toUpperCase();
-}
-
-function formatTimeOnly(value) {
+function formatTime(value) {
     if (!value) return "--:--";
     return new Date(value).toLocaleTimeString("en-IN", {
         hour: "2-digit",
@@ -102,109 +48,35 @@ function formatTimeOnly(value) {
     });
 }
 
-function getSessionSubtitle(session) {
-    if (!session) return "Session details unavailable";
-
-    if (typeof session.teacherName === "string" && session.teacherName.trim()) {
-        return session.teacherName;
-    }
-
-    if (session.teacherId && typeof session.teacherId === "object" && typeof session.teacherId.name === "string" && session.teacherId.name.trim()) {
-        return session.teacherId.name;
-    }
-
-    if (typeof session.room === "string" && session.room.trim()) {
-        return session.room;
-    }
-
-    if (typeof session.location === "string" && session.location.trim()) {
-        return session.location;
-    }
-
-    if (session.location && typeof session.location === "object") {
-        return "Campus geofence enabled";
-    }
-
-    return "Session details unavailable";
+function getTeacherName(session) {
+    return session?.teacherName || session?.teacherId?.name || "Teacher unavailable";
 }
 
-function getSessionMeta(session) {
-    if (!session) return "Campus";
-
-    if (typeof session.room === "string" && session.room.trim()) {
-        return session.room;
-    }
-
-    if (typeof session.location === "string" && session.location.trim()) {
-        return session.location;
-    }
-
-    if (session.location && typeof session.location === "object") {
-        return `Campus radius ${session.radius || MAX_RADIUS}m`;
-    }
-
-    if (session.sessionCode) {
-        return `Code ${session.sessionCode}`;
-    }
-
-    return "Campus";
-}
-
-function getStatusTone(status) {
-    if (status === "present" || status === "verified") {
-        return {
-            label: "Present",
-            badge: "bg-emerald-500/14 text-emerald-300 border border-emerald-400/15",
-        };
-    }
-
-    if (status === "late") {
-        return {
-            label: "Late",
-            badge: "bg-amber-400/16 text-amber-200 border border-amber-300/15",
-        };
-    }
-
-    return {
-        label: "Absent",
-        badge: "bg-rose-500/14 text-rose-300 border border-rose-400/15",
-    };
-}
-
-function getHistorySubject(record) {
-    return record.sessionId?.subject || record.subject || "Unknown Subject";
-}
-
-function getHistoryTeacher(record) {
-    return getSessionSubtitle(record.sessionId) || "Faculty name unavailable";
-}
-
-function getHistoryMeta(record) {
-    return getSessionMeta(record.sessionId) || "Session details unavailable";
-}
-
-function getHistoryTimestamp(record) {
-    return record.timestamp || record.sessionId?.startTime || record.createdAt || record.sessionId?.createdAt;
+function getDeviceId() {
+    return `${navigator.userAgent.slice(0, 40)}_${window.screen.width}x${window.screen.height}`;
 }
 
 export default function StudentDashboard() {
     const navigate = useNavigate();
     const { user, updateProfile, logout } = useAuth();
+
     const [activeTab, setActiveTab] = useState("home");
     const [stats, setStats] = useState(null);
-    const [distanceVal, setDistanceVal] = useState(null);
-    const [showScanner, setShowScanner] = useState(false);
-    const [scannedSession, setScannedSession] = useState(null);
-    const [location, setLocation] = useState(null);
-    const [marking, setMarking] = useState(false);
     const [history, setHistory] = useState([]);
-    const [loadingHistory, setLoadingHistory] = useState(true);
+    const [activeSession, setActiveSession] = useState(null);
+    const [location, setLocation] = useState(null);
+    const [distanceVal, setDistanceVal] = useState(null);
     const [locationStatus, setLocationStatus] = useState("checking");
+    const [loadingSession, setLoadingSession] = useState(true);
+    const [loadingHistory, setLoadingHistory] = useState(true);
+    const [marking, setMarking] = useState(false);
+
     const [name, setName] = useState(user?.name || "");
     const [regNo, setRegNo] = useState(user?.regNo || "");
     const [branch, setBranch] = useState(user?.branch || "");
     const [semester, setSemester] = useState(user?.semester || "");
     const [mobileNo, setMobileNo] = useState(user?.mobileNo || "");
+
     const isProfileComplete = user && user.regNo && user.branch && user.semester && user.mobileNo;
     const [isEditingProfile, setIsEditingProfile] = useState(!isProfileComplete);
 
@@ -221,734 +93,433 @@ export default function StudentDashboard() {
             setIsEditingProfile(true);
             setActiveTab("profile");
         }
-        fetchHistory();
+
         fetchStats();
-        checkLocationOnLoad();
+        fetchHistory();
+        refreshLocationAndSession(false);
     }, [user, isProfileComplete]);
 
-    const recentHistory = useMemo(() => history.slice(0, 4), [history]);
+    useEffect(() => {
+        const interval = setInterval(() => {
+            fetchActiveSession(location, false);
+        }, 20000);
+
+        return () => clearInterval(interval);
+    }, [location]);
+
     const attendancePercentage = stats?.percentage || 0;
     const attendedSessions = stats?.attendedSessions || 0;
     const totalSessions = stats?.totalSessions || 0;
     const absentSessions = Math.max(totalSessions - attendedSessions, 0);
-    const isInRange = distanceVal !== null && distanceVal <= MAX_RADIUS;
-    const canMarkAttendance = !!scannedSession && scannedSession.isActive !== false && !!location && (distanceVal === null || distanceVal <= MAX_RADIUS);
-    const streakDays = history.length ? Math.min(history.length, 12) : 0;
-    const historySections = useMemo(() => {
-        const grouped = history.reduce((acc, record) => {
-            const key = getDayKey(record.timestamp || record.createdAt);
-            if (!acc[key]) acc[key] = [];
-            acc[key].push(record);
-            return acc;
-        }, {});
+    const recentSessions = useMemo(() => history.slice(0, 5), [history]);
 
-        return Object.entries(grouped).map(([key, records]) => ({
-            key,
-            title: formatDayHeading(records[0]?.timestamp || records[0]?.createdAt),
-            records,
-        }));
-    }, [history]);
+    const isWithinRadius = useMemo(() => {
+        if (typeof activeSession?.isWithinRadius === "boolean") return activeSession.isWithinRadius;
+        if (!location || !activeSession?.location) return null;
+        return getDistance(location.lat, location.lng, activeSession.location.lat, activeSession.location.lng) <= (activeSession.radius || 100);
+    }, [activeSession, location]);
 
-    const activeSessionCard = useMemo(() => {
-        if (scannedSession) {
-            return {
-                title: scannedSession.subject || "Scanned Session",
-                faculty: getSessionSubtitle(scannedSession),
-                room: getSessionMeta(scannedSession),
-                attendees: attendedSessions,
-                endsIn: scannedSession.isActive === false ? "Session closed" : "Ready to check in",
-            };
-        }
+    const canMarkAttendance = Boolean(activeSession) && !activeSession?.alreadyMarked && isWithinRadius === true && !marking;
 
-        const latestRecord = history.find((record) => record?.sessionId);
-        return {
-            title: latestRecord?.sessionId?.subject || "No live session detected",
-            faculty: latestRecord?.sessionId ? getSessionSubtitle(latestRecord.sessionId) : "Scan the QR when class starts",
-            room: latestRecord?.sessionId ? getSessionMeta(latestRecord.sessionId) : "Room info will appear here",
-            attendees: attendedSessions,
-            endsIn: locationStatus === "in-range" ? "You're on campus" : "Scan to mark attendance",
-        };
-    }, [attendedSessions, history, locationStatus, scannedSession]);
-
-    const checkLocationOnLoad = () => {
-        if (!navigator.geolocation) {
-            setLocationStatus("error");
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                const lat = pos.coords.latitude;
-                const lng = pos.coords.longitude;
-                const dist = getDistance(lat, lng, COLLEGE_LAT, COLLEGE_LNG);
-                setDistanceVal(dist);
-                setLocation({ lat, lng });
-                setLocationStatus(dist <= MAX_RADIUS ? "in-range" : "out-of-range");
-            },
-            () => {
-                setLocationStatus("error");
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
-        );
-    };
-
-    const fetchStats = async () => {
+    async function fetchStats() {
         try {
             const res = await api.get("/attendance/student/stats");
             setStats(res.data);
         } catch (err) {
             console.error("Stats fetch failed:", err);
         }
-    };
+    }
 
-    const fetchHistory = async () => {
+    async function fetchHistory() {
         try {
             const res = await api.get("/attendance/student/history");
-            setHistory(res.data);
+            setHistory(res.data || []);
         } catch (err) {
             console.error("History fetch failed:", err);
         } finally {
             setLoadingHistory(false);
         }
-    };
+    }
 
-    const handleProfileUpdate = async (e) => {
-        e.preventDefault();
+    async function fetchActiveSession(currentLocation = location, withLoader = true) {
+        if (withLoader) setLoadingSession(true);
         try {
-            await updateProfile({ name, regNo, branch, semester, mobileNo });
-            setIsEditingProfile(false);
-            toast.success("Profile updated!");
-        } catch (err) {
-            toast.error("Failed to update profile");
-        }
-    };
-
-    const handleScan = async (sessionCode) => {
-        setShowScanner(false);
-        try {
-            const res = await api.get(`/session/code/${sessionCode}`);
-            setScannedSession(res.data);
-            getCurrentLocation();
-            setActiveTab("home");
-            if (res.data?.isActive === false) {
-                toast.error("This session is no longer active");
+            const params = {};
+            if (currentLocation?.lat != null && currentLocation?.lng != null) {
+                params.lat = currentLocation.lat;
+                params.lng = currentLocation.lng;
+            }
+            const res = await api.get("/session/active", { params });
+            setActiveSession(res.data || null);
+            if (res.data?.location && currentLocation) {
+                setDistanceVal(
+                    getDistance(currentLocation.lat, currentLocation.lng, res.data.location.lat, res.data.location.lng)
+                );
             } else {
-                toast.success("Session detected. You can mark attendance now.");
+                setDistanceVal(null);
             }
         } catch (err) {
-            toast.error("Session not found or invalid QR code");
+            console.error("Active session fetch failed:", err);
+            setActiveSession(null);
+        } finally {
+            if (withLoader) setLoadingSession(false);
         }
-    };
+    }
 
-    const getCurrentLocation = () => {
+    function refreshLocationAndSession(showToast) {
         if (!navigator.geolocation) {
-            toast.error("Geolocation not supported by your browser");
+            setLocationStatus("error");
+            fetchActiveSession(null, true);
             return;
         }
 
+        setLocationStatus("checking");
         navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                const lat = pos.coords.latitude;
-                const lng = pos.coords.longitude;
-                setLocation({ lat, lng });
-                const dist = getDistance(lat, lng, COLLEGE_LAT, COLLEGE_LNG);
-                setDistanceVal(dist);
-                setLocationStatus(dist <= MAX_RADIUS ? "in-range" : "out-of-range");
+            async (pos) => {
+                const nextLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                setLocation(nextLocation);
+                setLocationStatus("ready");
+                await fetchActiveSession(nextLocation, true);
             },
-            (err) => {
-                toast.error("Please enable location access to mark attendance");
+            async () => {
+                setLocation(null);
                 setLocationStatus("error");
-                console.error("Location error:", err);
+                await fetchActiveSession(null, true);
+                if (showToast) toast.error("Please enable location access to mark attendance");
             },
             { enableHighAccuracy: true, timeout: 10000 }
         );
-    };
+    }
 
-    const handleMarkAttendance = async () => {
-        if (!scannedSession || !location) {
-            toast.error("Location not available. Please allow location access.");
-            getCurrentLocation();
+    async function handleMarkAttendance() {
+        if (!activeSession?.sessionId || !location) {
+            toast.error("Location not available");
+            refreshLocationAndSession(true);
             return;
         }
 
         setMarking(true);
         try {
-            const deviceId = `${navigator.userAgent.slice(0, 50)}_${screen.width}x${screen.height}`;
             const res = await api.post("/attendance/mark", {
-                sessionId: scannedSession._id,
+                sessionId: activeSession.sessionId,
                 lat: location.lat,
                 lng: location.lng,
-                deviceId,
+                deviceId: getDeviceId(),
             });
-
             toast.success(res.data.message);
-            setScannedSession(null);
-            setLocation(null);
-            fetchHistory();
-            fetchStats();
+            await Promise.all([fetchStats(), fetchHistory(), fetchActiveSession(location, false)]);
         } catch (err) {
             toast.error(err.response?.data?.msg || "Failed to mark attendance");
+            await fetchActiveSession(location, false);
         } finally {
             setMarking(false);
         }
-    };
+    }
 
-    const handleLogout = async () => {
+    async function handleProfileUpdate(e) {
+        e.preventDefault();
+        try {
+            await updateProfile({ name, regNo, branch, semester, mobileNo });
+            setIsEditingProfile(false);
+            toast.success("Profile updated");
+        } catch (err) {
+            toast.error("Failed to update profile");
+        }
+    }
+
+    async function handleLogout() {
         await logout();
         navigate("/login", { replace: true });
-    };
+    }
 
-    const renderHomeTab = () => (
-        <div className="space-y-4 animate-fade-in lg:grid lg:grid-cols-[1.06fr_0.94fr] lg:gap-5 lg:space-y-0">
-            <div className="space-y-4">
-            <section className="rounded-[26px] border border-emerald-400/45 bg-[linear-gradient(180deg,rgba(7,28,36,0.96),rgba(7,20,33,0.98))] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.24)] lg:min-h-[250px] lg:p-5">
-                <div className="mb-4 flex items-center justify-between">
-                    <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-300">
-                        <span className="h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(74,222,128,0.8)]" />
-                        {scannedSession ? "Session Ready" : "Active Session"}
-                    </span>
-                    <span className="text-[10px] font-semibold text-slate-400">{activeSessionCard.endsIn}</span>
-                </div>
-
-                <div className="space-y-1">
-                    <h2 className="text-[21px] font-semibold leading-tight text-white">{activeSessionCard.title}</h2>
-                    <p className="text-sm text-slate-300">{activeSessionCard.faculty}</p>
-                    <p className="text-xs text-slate-400">{activeSessionCard.room}</p>
-                </div>
-
-                <div className="mt-4 flex items-center justify-between text-xs text-slate-300">
-                    <div className="flex -space-x-2">
-                        {["A", "B", "C", "D"].map((label, index) => (
-                            <div
-                                key={label}
-                                className={`flex h-7 w-7 items-center justify-center rounded-full border border-[#06101c] text-[10px] font-semibold text-white ${index === 0
-                                    ? "bg-[#f59e0b]"
-                                    : index === 1
-                                        ? "bg-[#ec4899]"
-                                        : index === 2
-                                            ? "bg-[#3b82f6]"
-                                            : "bg-[#14b8a6]"
-                                    }`}
-                            >
-                                {label}
-                            </div>
-                        ))}
-                    </div>
-                    <span>{activeSessionCard.attendees} check-ins tracked</span>
-                </div>
-            </section>
-
-            <section className="rounded-[22px] bg-[#1daaf2] px-4 py-4 text-[#04131f] shadow-[0_16px_36px_rgba(29,170,242,0.24)] lg:p-5">
-                {!scannedSession ? (
-                    <>
-                        <button
-                            onClick={() => setShowScanner(true)}
-                            className="flex w-full items-center justify-center gap-3 rounded-[18px] bg-[#1daaf2] py-1 text-base font-semibold text-[#04131f] cursor-pointer"
-                        >
-                            <QrCode size={22} weight="bold" />
-                            Mark Attendance
-                        </button>
-                        <p className="mt-2 text-center text-[11px] font-medium text-[#093047]">
-                            Having trouble? Enter code manually after scanning on your current flow.
+    function renderHomeTab() {
+        return (
+            <div className="space-y-5 animate-fade-in">
+                <section className="lg:flex lg:items-end lg:justify-between">
+                    <div>
+                        <h1 className="text-[32px] font-semibold leading-none text-white lg:text-[42px]">
+                            Hi, {user?.name?.split(" ")[0] || "Student"}
+                        </h1>
+                        <p className="mt-2 text-sm text-slate-400 lg:text-base">
+                            Your teacher&apos;s active session appears here automatically.
                         </p>
-                    </>
-                ) : (
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between rounded-[18px] bg-[#0f2230]/12 px-3 py-3 text-sm">
-                            <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#0b3b5a]">
-                                    Session detected
-                                </p>
-                                <p className="mt-1 font-semibold text-[#04131f]">{scannedSession.subject}</p>
-                                <p className="mt-1 text-[11px] text-[#0b3b5a]">{getSessionMeta(scannedSession)}</p>
-                            </div>
-                            <MapPin size={20} weight="fill" className={isInRange ? "text-emerald-700" : "text-amber-700"} />
+                    </div>
+                    <div className="mt-4 hidden gap-3 lg:grid lg:grid-cols-3">
+                        <div className="rounded-[18px] border border-white/6 bg-[#141925] px-4 py-3">
+                            <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Attendance</p>
+                            <p className="mt-2 text-2xl font-semibold text-white">{attendancePercentage}%</p>
                         </div>
-                        <div className="rounded-[16px] bg-white/18 px-3 py-2 text-[11px] text-[#093047]">
-                            {scannedSession.isActive === false
-                                ? "This session has already ended."
-                                : locationStatus === "error"
-                                    ? "Allow location permission, then try again."
-                                    : distanceVal !== null && distanceVal > MAX_RADIUS
-                                        ? "You are outside the allowed campus radius."
-                                        : location
-                                            ? "Location verified. You can submit attendance."
-                                            : "Fetching your live location..."}
+                        <div className="rounded-[18px] border border-white/6 bg-[#141925] px-4 py-3">
+                            <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Attended</p>
+                            <p className="mt-2 text-2xl font-semibold text-white">{attendedSessions}</p>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                onClick={() => {
-                                    setScannedSession(null);
-                                    setLocation(null);
-                                }}
-                                className="rounded-[16px] bg-white/18 px-4 py-3 text-sm font-semibold text-[#052235] cursor-pointer"
+                        <div className="rounded-[18px] border border-white/6 bg-[#141925] px-4 py-3">
+                            <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Missed</p>
+                            <p className="mt-2 text-2xl font-semibold text-white">{absentSessions}</p>
+                        </div>
+                    </div>
+                </section>
+
+                {loadingSession ? (
+                    <div className="flex justify-center rounded-[26px] border border-white/6 bg-[#171b24] p-10">
+                        <SpinnerGap size={24} className="animate-spin text-[#33c3ff]" />
+                    </div>
+                ) : activeSession ? (
+                    <section className="rounded-[26px] border border-emerald-400/20 bg-[linear-gradient(180deg,rgba(10,33,40,0.98),rgba(9,18,30,0.98))] p-6 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-emerald-300">
+                                <span className="h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(74,222,128,0.8)]" />
+                                Active Session
+                            </span>
+                            <span
+                                className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${
+                                    isWithinRadius
+                                        ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-300"
+                                        : isWithinRadius === false
+                                          ? "border-rose-400/20 bg-rose-500/10 text-rose-300"
+                                          : "border-white/10 bg-white/5 text-slate-300"
+                                }`}
                             >
-                                Cancel
-                            </button>
+                                {isWithinRadius ? "Verified" : isWithinRadius === false ? "Out of range" : locationStatus === "error" ? "Location blocked" : "Checking"}
+                            </span>
+                        </div>
+
+                        <h2 className="mt-5 text-[24px] font-semibold text-white">{activeSession.subject}</h2>
+                        <p className="mt-1 text-sm text-slate-300">{activeSession.teacherName}</p>
+
+                        <div className="mt-5 grid gap-3 md:grid-cols-3">
+                            <div className="rounded-2xl border border-white/6 bg-[#111722] p-4">
+                                <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Teacher</p>
+                                <p className="mt-2 text-sm font-semibold text-white">{getTeacherName(activeSession)}</p>
+                            </div>
+                            <div className="rounded-2xl border border-white/6 bg-[#111722] p-4">
+                                <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Time Window</p>
+                                <p className="mt-2 text-sm font-semibold text-white">
+                                    {formatTime(activeSession.startTime)} - {formatTime(activeSession.endTime)}
+                                </p>
+                            </div>
+                            <div className="rounded-2xl border border-white/6 bg-[#111722] p-4">
+                                <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Students Marked</p>
+                                <p className="mt-2 text-sm font-semibold text-white">{activeSession.totalMarked || 0}</p>
+                            </div>
+                        </div>
+
+                        <div className="mt-5 rounded-2xl border border-white/6 bg-[#111722] p-4 text-sm text-slate-300">
+                            <div className="flex items-start gap-3">
+                                <MapPin size={18} className={isWithinRadius ? "text-emerald-300" : "text-amber-300"} />
+                                <div>
+                                    <p className="font-semibold text-white">
+                                        {activeSession.alreadyMarked
+                                            ? "Attendance already marked for this session"
+                                            : isWithinRadius
+                                              ? "Location verified"
+                                              : isWithinRadius === false
+                                                ? "You are outside the allowed radius"
+                                                : "Enable location to verify attendance"}
+                                    </p>
+                                    <p className="mt-1 text-xs text-slate-400">
+                                        Radius: {activeSession.radius || 100}m
+                                        {typeof distanceVal === "number" ? ` - Distance: ${Math.round(distanceVal)}m` : ""}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                             <button
                                 onClick={handleMarkAttendance}
-                                disabled={marking || !canMarkAttendance}
-                                className="flex items-center justify-center gap-2 rounded-[16px] bg-[#04131f] px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={!canMarkAttendance}
+                                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#29d8ff] px-5 py-3 text-sm font-semibold text-[#04131f] shadow-[0_16px_34px_rgba(41,216,255,0.22)] disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                {marking ? <SpinnerGap className="animate-spin" size={18} /> : <CheckCircle size={18} weight="fill" />}
-                                Mark Present
+                                {marking ? <SpinnerGap size={18} className="animate-spin" /> : <CheckCircle size={18} weight="fill" />}
+                                {activeSession.alreadyMarked ? "Attendance Marked" : "Mark Attendance"}
+                            </button>
+                            <button
+                                onClick={() => refreshLocationAndSession(true)}
+                                className="rounded-2xl border border-white/8 bg-[#101622] px-5 py-3 text-sm font-semibold text-white"
+                            >
+                                Refresh Location
                             </button>
                         </div>
-                        <button
-                            onClick={getCurrentLocation}
-                            className="w-full rounded-[16px] border border-[#0f2230]/20 bg-white/20 px-4 py-3 text-sm font-semibold text-[#052235] cursor-pointer"
-                        >
-                            Refresh Location
-                        </button>
-                    </div>
-                )}
-            </section>
-
-            </div>
-
-            <div className="space-y-4">
-            <section className="grid grid-cols-2 gap-3">
-                <div className="rounded-[20px] border border-white/6 bg-[#181d27] px-4 py-4 shadow-[0_12px_28px_rgba(0,0,0,0.22)]">
-                    <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#102b35] text-[#29c7d8]">
-                        <Clock size={20} weight="duotone" />
-                    </div>
-                    <p className="text-[31px] font-semibold leading-none text-white">
-                        {attendedSessions}/{Math.max(totalSessions, attendedSessions)}
-                    </p>
-                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">This week</p>
-                </div>
-
-                <div className="rounded-[20px] border border-white/6 bg-[#181d27] px-4 py-4 shadow-[0_12px_28px_rgba(0,0,0,0.22)]">
-                    <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#102833] text-[#61d7ff]">
-                        <TrendUp size={20} weight="duotone" />
-                    </div>
-                    <div className="flex items-start justify-between gap-3">
-                        <div>
-                            <p className="text-[31px] font-semibold leading-none text-white">{attendancePercentage}%</p>
-                            <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                                Attendance
-                            </p>
+                    </section>
+                ) : (
+                    <section className="rounded-[26px] border border-dashed border-cyan-400/20 bg-[#171b24] p-6 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/80">No Active Session</p>
+                                <h2 className="mt-2 text-2xl font-semibold text-white">Nothing is live right now</h2>
+                                <p className="mt-2 text-sm text-slate-400">
+                                    When a teacher starts a session, it will appear here automatically.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => refreshLocationAndSession(true)}
+                                className="rounded-2xl border border-white/8 bg-[#101622] px-4 py-3 text-sm font-semibold text-white"
+                            >
+                                Refresh
+                            </button>
                         </div>
-                        <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] font-semibold text-slate-300">
-                            {absentSessions} absent
-                        </span>
-                    </div>
-                </div>
-            </section>
+                        <div className="mt-6 space-y-3">
+                            <p className="text-sm font-semibold text-white">Past 5 sessions</p>
+                            {recentSessions.length === 0 ? (
+                                <div className="rounded-2xl border border-white/6 bg-[#111722] px-4 py-5 text-sm text-slate-400">
+                                    No recent sessions yet.
+                                </div>
+                            ) : (
+                                recentSessions.map((record) => (
+                                    <div key={record._id} className="rounded-2xl border border-white/6 bg-[#111722] px-4 py-4">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div>
+                                                <p className="text-sm font-semibold text-white">{record.sessionId?.subject || "Unknown subject"}</p>
+                                                <p className="mt-1 text-xs text-slate-400">{getTeacherName(record.sessionId)}</p>
+                                                <p className="mt-2 text-xs text-slate-500">{formatDateTime(record.timestamp || record.sessionId?.startTime)}</p>
+                                            </div>
+                                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-300">
+                                                {record.status}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </section>
+                )}
+            </div>
+        );
+    }
 
-            <section className="pt-1">
-                <div className="mb-3 flex items-center justify-between">
-                    <div>
-                        <h3 className="text-base font-semibold text-white">Recent Activity</h3>
-                        <p className="text-xs text-slate-500">Latest attendance records</p>
-                    </div>
-                    <button
-                        onClick={() => setActiveTab("history")}
-                        className="text-xs font-semibold text-[#33c3ff] cursor-pointer"
-                    >
-                        View History
-                    </button>
+    function renderHistoryTab() {
+        return (
+            <div className="space-y-4 animate-fade-in">
+                <div className="rounded-[24px] border border-white/6 bg-[#171b24] p-5 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
+                    <h2 className="text-lg font-semibold text-white">Recent attendance history</h2>
+                    <p className="mt-1 text-sm text-slate-400">Review your latest marked and missed sessions.</p>
                 </div>
 
                 {loadingHistory ? (
-                    <div className="flex items-center justify-center rounded-[20px] border border-white/6 bg-[#141925] px-4 py-10">
-                        <SpinnerGap size={22} className="animate-spin text-[#33c3ff]" />
+                    <div className="flex justify-center py-10">
+                        <SpinnerGap size={24} className="animate-spin text-[#33c3ff]" />
                     </div>
-                ) : recentHistory.length === 0 ? (
-                    <div className="rounded-[20px] border border-white/6 bg-[#141925] px-4 py-8 text-center text-sm text-slate-400">
-                        No attendance records yet
+                ) : history.length === 0 ? (
+                    <div className="rounded-[24px] border border-white/6 bg-[#171b24] px-4 py-10 text-center text-sm text-slate-400">
+                        No attendance records available yet.
                     </div>
                 ) : (
-                    <div className="space-y-3">
-                        {recentHistory.map((record) => {
-                            const tone = getStatusTone(record.status);
-                            return (
-                                <div
-                                    key={record._id}
-                                    className="flex items-center justify-between rounded-[20px] border border-white/6 bg-[#141925] px-4 py-4 shadow-[0_10px_24px_rgba(0,0,0,0.18)]"
-                                >
-                                    <div className="flex items-start gap-3">
-                                        <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full border border-white/6 bg-white/[0.03] text-slate-300">
-                                            <Clock size={16} />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-semibold text-white">
-                                                {getHistorySubject(record)}
-                                            </p>
-                                            <p className="mt-1 text-[11px] text-slate-500">{formatDateTime(getHistoryTimestamp(record))}</p>
-                                            <p className="mt-0.5 text-[11px] text-slate-500">
-                                                {getHistoryMeta(record)}
-                                            </p>
-                                        </div>
+                    history.map((record) => (
+                        <div key={record._id} className="rounded-[24px] border border-white/6 bg-[#171b24] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
+                            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                <div>
+                                    <p className="text-lg font-semibold text-white">{record.sessionId?.subject || "Unknown subject"}</p>
+                                    <p className="mt-1 text-sm text-slate-400">{getTeacherName(record.sessionId)}</p>
+                                    <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
+                                        <span>{formatDateTime(record.timestamp || record.sessionId?.startTime)}</span>
+                                        <span>
+                                            {formatTime(record.sessionId?.startTime)} - {formatTime(record.sessionId?.endTime)}
+                                        </span>
                                     </div>
-                                    <span className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${tone.badge}`}>
-                                        {tone.label}
-                                    </span>
                                 </div>
-                            );
-                        })}
-                    </div>
+                                <span className="w-fit rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-300">
+                                    {record.status}
+                                </span>
+                            </div>
+                        </div>
+                    ))
                 )}
-            </section>
             </div>
-        </div>
-    );
+        );
+    }
 
-    const renderHistoryTab = () => (
-        <div className="space-y-4 animate-fade-in lg:grid lg:grid-cols-[0.84fr_1.16fr] lg:gap-5 lg:space-y-0">
-            <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => setActiveTab("home")}
-                        className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-white/[0.04] hover:text-white cursor-pointer"
-                    >
-                        <ArrowLeft size={18} weight="bold" />
-                    </button>
-                    <div>
-                        <h2 className="text-lg font-semibold text-white">History</h2>
-                        <p className="text-xs text-slate-500">Track your recent attendance sessions</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/6 bg-[#141925] text-slate-400">
-                        <CalendarBlank size={16} />
-                    </button>
-                    <button className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/6 bg-[#141925] text-slate-400">
-                        <FunnelSimple size={16} />
-                    </button>
-                </div>
-            </div>
-
-            <div>
-                <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">Statistics</p>
-                <div className="grid grid-cols-3 gap-3">
-                    <div className="rounded-[18px] border border-[#34d7ff]/20 bg-[linear-gradient(180deg,#0f6776,#0b4d58)] px-3 py-3 shadow-[0_16px_30px_rgba(12,90,109,0.24)]">
-                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-[#8af2ff]">
-                            <TrendUp size={18} weight="duotone" />
+    function renderProfileTab() {
+        return (
+            <div className="space-y-4 animate-fade-in lg:grid lg:grid-cols-[1.06fr_0.94fr] lg:gap-5 lg:space-y-0">
+                <div className="rounded-[28px] border border-white/6 bg-[#171b24] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                        <div>
+                            <h2 className="text-lg font-semibold text-white">Profile</h2>
+                            <p className="mt-1 text-sm text-slate-400">Keep these details updated for attendance verification.</p>
                         </div>
-                        <p className="text-xl font-semibold leading-none text-white">{attendancePercentage}%</p>
-                        <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-100/80">Attendance</p>
-                    </div>
-
-                    <div className="rounded-[18px] border border-white/6 bg-[#141925] px-3 py-3">
-                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.05] text-slate-300">
-                            <ChartLineUp size={18} weight="duotone" />
-                        </div>
-                        <p className="text-xl font-semibold leading-none text-white">{streakDays} Days</p>
-                        <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Streak</p>
-                    </div>
-
-                    <div className="rounded-[18px] border border-white/6 bg-[#141925] px-3 py-3">
-                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.05] text-slate-300">
-                            <Clock size={18} weight="duotone" />
-                        </div>
-                        <p className="text-xl font-semibold leading-none text-white">{absentSessions}</p>
-                        <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Missed</p>
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {["All", "This Week", "Last Month", "Mathematics"].map((chip, index) => (
-                    <button
-                        key={chip}
-                        className={`whitespace-nowrap rounded-full px-4 py-2 text-[11px] font-semibold ${index === 0
-                            ? "bg-[#1cc7ee] text-[#04131f]"
-                            : "bg-[#141925] text-slate-400 border border-white/6"
-                            }`}
-                    >
-                        {chip}
-                    </button>
-                ))}
-            </div>
-
-            </div>
-
-            <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold text-white">Recent Sessions</h3>
-                <span className="text-[11px] font-medium text-slate-500">
-                    {new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
-                </span>
-            </div>
-
-            {loadingHistory ? (
-                <div className="flex items-center justify-center rounded-[20px] border border-white/6 bg-[#141925] px-4 py-10">
-                    <SpinnerGap size={24} className="animate-spin text-[#33c3ff]" />
-                </div>
-            ) : (
-                <div className="space-y-5">
-                    {historySections.length === 0 ? (
-                        <div className="rounded-[20px] border border-white/6 bg-[#141925] px-4 py-10 text-center text-sm text-slate-400">
-                            No attendance records yet
-                        </div>
-                    ) : (
-                        historySections.map((section) => (
-                            <div key={section.key}>
-                                <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-                                    {section.title}
-                                </p>
-                                <div className="space-y-3">
-                                    {section.records.map((record) => {
-                                        const tone = getStatusTone(record.status);
-                                        return (
-                                            <div key={record._id} className="flex gap-3">
-                                                <div className="flex w-4 flex-col items-center">
-                                                    <span className={`mt-3 h-2.5 w-2.5 rounded-full ${tone.label === "Absent" ? "bg-rose-400" : "bg-slate-500"}`} />
-                                                    <span className="mt-1 h-full w-px bg-white/8" />
-                                                </div>
-                                                <div className="flex-1 rounded-[22px] border border-white/6 bg-[#141925] px-4 py-4 shadow-[0_10px_24px_rgba(0,0,0,0.18)]">
-                                                    <div className="flex items-start justify-between gap-3">
-                                                        <div>
-                                                            <p className="text-[15px] font-semibold text-white">
-                                                                {getHistorySubject(record)}
-                                                            </p>
-                                                            <p className="mt-1 text-[11px] text-slate-500">
-                                                                {getHistoryTeacher(record)}
-                                                            </p>
-                                                        </div>
-                                                        <span className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${tone.badge}`}>
-                                                            {tone.label}
-                                                        </span>
-                                                    </div>
-
-                                                    <div className="mt-4 grid grid-cols-2 gap-3 text-[11px] text-slate-400">
-                                                        <div className="flex items-center gap-2">
-                                                            <Clock size={14} />
-                                                            <span>{formatTimeOnly(getHistoryTimestamp(record))}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <MapPin size={14} />
-                                                            <span>{getHistoryMeta(record)}</span>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="mt-4 flex items-center justify-between border-t border-white/6 pt-3">
-                                                        <p className="text-[10px] text-slate-500">Captured via QR Scan</p>
-                                                        <button className="text-[11px] font-semibold text-[#2fc6ff]">
-                                                            Details
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </div>
-            )}
-
-            <div className="rounded-[22px] border border-cyan-500/20 bg-[linear-gradient(180deg,rgba(8,90,94,0.95),rgba(10,73,89,0.95))] px-4 py-4 shadow-[0_16px_34px_rgba(8,90,94,0.22)]">
-                <h4 className="text-sm font-semibold text-white">Improve your score?</h4>
-                <p className="mt-1 max-w-[220px] text-[11px] text-cyan-50/70">
-                    Enable location alerts to never miss a check-in reminder.
-                </p>
-                <div className="mt-4 flex justify-end">
-                    <button className="rounded-xl bg-[#2fe4ff] px-4 py-2 text-[11px] font-semibold text-[#06222b]">
-                        Enable
-                    </button>
-                </div>
-            </div>
-            </div>
-        </div>
-    );
-
-    const renderProfileTab = () => (
-        <div className="space-y-4 animate-fade-in lg:grid lg:grid-cols-[0.82fr_1.18fr] lg:gap-5 lg:space-y-0">
-            <div className="space-y-4">
-            <div className="rounded-[22px] border border-white/6 bg-[#141925] px-4 py-4">
-                <div className="flex items-start justify-between gap-3">
-                    <div>
-                        <h2 className="text-lg font-semibold text-white">Profile</h2>
-                        <p className="mt-1 text-sm text-slate-400">Keep these details updated for attendance verification.</p>
-                    </div>
-                    {!isEditingProfile && (
-                        <button
-                            onClick={() => setIsEditingProfile(true)}
-                            className="text-xs font-semibold text-[#33c3ff] cursor-pointer"
-                        >
-                            Edit
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {!isEditingProfile ? (
-                <div className="space-y-3">
-                    {[
-                        { icon: <UserIcon size={16} />, label: "Full Name", value: user?.name || "Not set" },
-                        { icon: <IdentificationCard size={16} />, label: "Registration No.", value: user?.regNo || "Not set" },
-                        { icon: <Buildings size={16} />, label: "Branch", value: user?.branch || "Not set" },
-                        { icon: <BookBookmark size={16} />, label: "Semester", value: user?.semester || "Not set" },
-                        { icon: <Phone size={16} />, label: "Mobile", value: user?.mobileNo || "Not set" },
-                    ].map((item) => (
-                        <div
-                            key={item.label}
-                            className="flex items-center gap-3 rounded-[20px] border border-white/6 bg-[#141925] px-4 py-4"
-                        >
-                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#102833] text-[#61d7ff]">
-                                {item.icon}
-                            </div>
-                            <div>
-                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
-                                <p className="mt-1 text-sm font-semibold text-white">{item.value}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                <div className="rounded-[24px] border border-white/6 bg-[#141925] p-4 shadow-[0_12px_28px_rgba(0,0,0,0.2)]">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                            <Warning size={18} weight="fill" className="text-amber-300" />
-                            <p className="text-sm font-semibold text-amber-200">
-                                {isProfileComplete ? "Edit your profile" : "Complete your profile"}
-                            </p>
-                        </div>
-                        {isProfileComplete && (
-                            <button
-                                onClick={() => {
-                                    setIsEditingProfile(false);
-                                    setName(user?.name || "");
-                                    setRegNo(user?.regNo || "");
-                                    setBranch(user?.branch || "");
-                                    setSemester(user?.semester || "");
-                                    setMobileNo(user?.mobileNo || "");
-                                }}
-                                className="text-xs font-semibold text-slate-400 cursor-pointer"
-                            >
-                                Cancel
+                        {!isEditingProfile && (
+                            <button onClick={() => setIsEditingProfile(true)} className="text-xs font-semibold text-[#33c3ff]">
+                                Edit
                             </button>
                         )}
                     </div>
 
-                    <form onSubmit={handleProfileUpdate} className="space-y-3">
-                        <label className="block">
-                            <span className="mb-1.5 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                                <UserIcon size={14} />
-                                Full Name
-                            </span>
-                            <input
-                                type="text"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                required
-                                className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]"
-                            />
-                        </label>
-
-                        <label className="block">
-                            <span className="mb-1.5 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                                <IdentificationCard size={14} />
-                                Registration No.
-                            </span>
-                            <input
-                                type="text"
-                                value={regNo}
-                                onChange={(e) => setRegNo(e.target.value)}
-                                required
-                                className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]"
-                            />
-                        </label>
-
-                        <label className="block">
-                            <span className="mb-1.5 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                                <Buildings size={14} />
-                                Branch
-                            </span>
-                            <input
-                                type="text"
-                                value={branch}
-                                onChange={(e) => setBranch(e.target.value)}
-                                required
-                                className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]"
-                            />
-                        </label>
-
-                        <div className="grid grid-cols-2 gap-3">
-                            <label className="block">
-                                <span className="mb-1.5 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                                    <BookBookmark size={14} />
-                                    Semester
-                                </span>
-                                <input
-                                    type="text"
-                                    value={semester}
-                                    onChange={(e) => setSemester(e.target.value)}
-                                    required
-                                    className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]"
-                                />
-                            </label>
-
-                            <label className="block">
-                                <span className="mb-1.5 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                                    <Phone size={14} />
-                                    Mobile
-                                </span>
-                                <input
-                                    type="text"
-                                    value={mobileNo}
-                                    onChange={(e) => setMobileNo(e.target.value)}
-                                    required
-                                    className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]"
-                                />
-                            </label>
+                    {!isEditingProfile ? (
+                        <div className="space-y-3">
+                            {[
+                                { icon: <UserIcon size={16} />, label: "Full Name", value: user?.name || "Not set" },
+                                { icon: <IdentificationCard size={16} />, label: "Registration No.", value: user?.regNo || "Not set" },
+                                { icon: <Buildings size={16} />, label: "Branch", value: user?.branch || "Not set" },
+                                { icon: <BookBookmark size={16} />, label: "Semester", value: user?.semester || "Not set" },
+                                { icon: <Phone size={16} />, label: "Mobile", value: user?.mobileNo || "Not set" },
+                            ].map((item) => (
+                                <div key={item.label} className="flex items-center gap-3 rounded-[20px] border border-white/6 bg-[#141925] px-4 py-4">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#102833] text-[#61d7ff]">{item.icon}</div>
+                                    <div>
+                                        <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
+                                        <p className="mt-1 text-sm font-semibold text-white">{item.value}</p>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-
-                        <button
-                            type="submit"
-                            className="w-full rounded-[18px] bg-[#1daaf2] px-4 py-3 text-sm font-semibold text-[#04131f] shadow-[0_16px_36px_rgba(29,170,242,0.24)] cursor-pointer"
-                        >
-                            Save Profile
-                        </button>
-                    </form>
-                </div>
-            )}
-
-            <button
-                onClick={handleLogout}
-                className="flex w-full items-center justify-center gap-2 rounded-[18px] border border-white/8 bg-[#171c27] px-4 py-3 text-sm font-semibold text-white cursor-pointer"
-            >
-                <SignOut size={18} />
-                Logout
-            </button>
-            </div>
-
-            <div className="space-y-4">
-                {!isEditingProfile && (
-                    <div className="rounded-[24px] border border-white/6 bg-[#171b24] p-5 shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div className="rounded-[20px] border border-white/6 bg-[#141925] p-4">
-                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Profile status</p>
-                                <p className="mt-3 text-2xl font-semibold text-white">
-                                    {isProfileComplete ? "Ready for class" : "Needs update"}
-                                </p>
-                                <p className="mt-2 text-sm text-slate-400">
-                                    Keep your details current so attendance verification stays smooth across devices.
-                                </p>
+                    ) : (
+                        <div className="rounded-[24px] border border-white/6 bg-[#141925] p-4">
+                            <div className="mb-4 flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2">
+                                    <Warning size={18} weight="fill" className="text-amber-300" />
+                                    <p className="text-sm font-semibold text-amber-200">
+                                        {isProfileComplete ? "Edit your profile" : "Complete your profile"}
+                                    </p>
+                                </div>
+                                {isProfileComplete && (
+                                    <button
+                                        onClick={() => {
+                                            setIsEditingProfile(false);
+                                            setName(user?.name || "");
+                                            setRegNo(user?.regNo || "");
+                                            setBranch(user?.branch || "");
+                                            setSemester(user?.semester || "");
+                                            setMobileNo(user?.mobileNo || "");
+                                        }}
+                                        className="text-xs font-semibold text-slate-400"
+                                    >
+                                        Cancel
+                                    </button>
+                                )}
                             </div>
-                            <div className="rounded-[20px] border border-cyan-400/15 bg-[linear-gradient(180deg,rgba(12,81,97,0.95),rgba(16,27,37,0.95))] p-4">
-                                <p className="text-[11px] uppercase tracking-[0.18em] text-cyan-100/75">Quick action</p>
-                                <p className="mt-3 text-2xl font-semibold text-white">Need to change something?</p>
-                                <p className="mt-2 text-sm text-cyan-50/70">
-                                    Open edit mode to update your name, registration, branch, semester, or mobile number.
-                                </p>
-                                <button
-                                    onClick={() => setIsEditingProfile(true)}
-                                    className="mt-4 rounded-[16px] bg-[#2fe4ff] px-4 py-3 text-sm font-semibold text-[#06222b]"
-                                >
-                                    Edit Profile
+
+                            <form onSubmit={handleProfileUpdate} className="space-y-3">
+                                <input type="text" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Full name" className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]" />
+                                <input type="text" value={regNo} onChange={(e) => setRegNo(e.target.value)} required placeholder="Registration number" className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]" />
+                                <input type="text" value={branch} onChange={(e) => setBranch(e.target.value)} required placeholder="Branch" className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]" />
+                                <div className="grid grid-cols-2 gap-3">
+                                    <input type="text" value={semester} onChange={(e) => setSemester(e.target.value)} required placeholder="Semester" className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]" />
+                                    <input type="text" value={mobileNo} onChange={(e) => setMobileNo(e.target.value)} required placeholder="Mobile number" className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]" />
+                                </div>
+                                <button type="submit" className="w-full rounded-[18px] bg-[#1daaf2] px-4 py-3 text-sm font-semibold text-[#04131f] shadow-[0_16px_36px_rgba(29,170,242,0.24)]">
+                                    Save Profile
                                 </button>
-                            </div>
+                            </form>
                         </div>
-                    </div>
-                )}
+                    )}
+
+                    <button onClick={handleLogout} className="mt-4 flex w-full items-center justify-center gap-2 rounded-[18px] border border-white/8 bg-[#171c27] px-4 py-3 text-sm font-semibold text-white">
+                        <SignOut size={18} />
+                        Logout
+                    </button>
+                </div>
+
+                <div className="rounded-[24px] border border-white/6 bg-[#171b24] p-5 shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Profile status</p>
+                    <p className="mt-3 text-2xl font-semibold text-white">{isProfileComplete ? "Ready for class" : "Needs update"}</p>
+                    <p className="mt-2 text-sm text-slate-400">
+                        Accurate details help keep location-based attendance validation smooth.
+                    </p>
+                </div>
             </div>
-        </div>
-    );
+        );
+    }
 
     return (
         <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(23,34,56,0.92),rgba(5,8,18,1)_55%)] text-slate-200">
@@ -964,117 +535,39 @@ export default function StudentDashboard() {
                                 <p className="mt-1 text-xs text-slate-500">Track live attendance, history, and profile in one place.</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <div className="hidden lg:flex items-center gap-2 rounded-2xl border border-white/6 bg-[#121722] p-1">
-                                <button
-                                    onClick={() => setActiveTab("home")}
-                                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "home" ? "bg-[#29d8ff] text-[#04131f]" : "text-slate-400 hover:text-white"}`}
-                                >
-                                    Home
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab("history")}
-                                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "history" ? "bg-[#29d8ff] text-[#04131f]" : "text-slate-400 hover:text-white"}`}
-                                >
-                                    History
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab("profile")}
-                                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "profile" ? "bg-[#29d8ff] text-[#04131f]" : "text-slate-400 hover:text-white"}`}
-                                >
-                                    Profile
-                                </button>
-                            </div>
-                            <button
-                                onClick={() => setActiveTab("profile")}
-                                className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition hover:bg-white/[0.04] hover:text-white cursor-pointer"
-                            >
-                                <GearSix size={18} weight="bold" />
-                            </button>
+                        <div className="hidden lg:flex items-center gap-2 rounded-2xl border border-white/6 bg-[#121722] p-1">
+                            <button onClick={() => setActiveTab("home")} className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "home" ? "bg-[#29d8ff] text-[#04131f]" : "text-slate-400 hover:text-white"}`}>Home</button>
+                            <button onClick={() => setActiveTab("history")} className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "history" ? "bg-[#29d8ff] text-[#04131f]" : "text-slate-400 hover:text-white"}`}>History</button>
+                            <button onClick={() => setActiveTab("profile")} className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === "profile" ? "bg-[#29d8ff] text-[#04131f]" : "text-slate-400 hover:text-white"}`}>Profile</button>
                         </div>
+                        <button onClick={() => setActiveTab("profile")} className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition hover:bg-white/[0.04] hover:text-white lg:hidden">
+                            <GearSix size={18} weight="bold" />
+                        </button>
                     </div>
                 </section>
-
-                {activeTab === "home" && (
-                    <section className="mb-6 lg:flex lg:items-end lg:justify-between">
-                        <div>
-                        <h1 className="text-[32px] font-semibold leading-none text-white lg:text-[42px]">
-                            Hi, {user?.name?.split(" ")[0] || "Student"}
-                        </h1>
-                        <p className="mt-2 text-sm text-slate-400 lg:text-base">Let&apos;s get you marked for today&apos;s classes.</p>
-                        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                            <span className="rounded-full bg-white/5 px-2.5 py-1">{formatShortDate(new Date())}</span>
-                            <span className="rounded-full bg-white/5 px-2.5 py-1">
-                                {locationStatus === "in-range"
-                                    ? "On campus"
-                                    : locationStatus === "out-of-range"
-                                        ? "Outside campus"
-                                        : locationStatus === "error"
-                                            ? "Location blocked"
-                                            : "Checking location"}
-                            </span>
-                        </div>
-                        </div>
-
-                        <div className="mt-4 hidden gap-3 lg:grid lg:grid-cols-3">
-                            <div className="rounded-[18px] border border-white/6 bg-[#141925] px-4 py-3">
-                                <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Attendance</p>
-                                <p className="mt-2 text-2xl font-semibold text-white">{attendancePercentage}%</p>
-                            </div>
-                            <div className="rounded-[18px] border border-white/6 bg-[#141925] px-4 py-3">
-                                <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Attended</p>
-                                <p className="mt-2 text-2xl font-semibold text-white">{attendedSessions}</p>
-                            </div>
-                            <div className="rounded-[18px] border border-white/6 bg-[#141925] px-4 py-3">
-                                <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Missed</p>
-                                <p className="mt-2 text-2xl font-semibold text-white">{absentSessions}</p>
-                            </div>
-                        </div>
-                    </section>
-                )}
 
                 {activeTab === "home" && renderHomeTab()}
                 {activeTab === "history" && renderHistoryTab()}
                 {activeTab === "profile" && renderProfileTab()}
             </main>
 
-            {showScanner && <QRScanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
-
             <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-5 lg:hidden">
                 <div className="mx-auto flex w-full max-w-md items-center justify-between rounded-[24px] border border-white/6 bg-[#0e1320]/94 px-5 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-                    <button
-                        onClick={() => setActiveTab("home")}
-                        className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === "home" ? "text-[#2fc6ff]" : "text-slate-500"
-                            }`}
-                    >
+                    <button onClick={() => setActiveTab("home")} className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === "home" ? "text-[#2fc6ff]" : "text-slate-500"}`}>
                         <House size={22} weight={activeTab === "home" ? "fill" : "regular"} />
                         Home
                     </button>
-
-                    <button
-                        onClick={() => setShowScanner(true)}
-                        className="flex flex-col items-center gap-1 text-[10px] font-medium text-slate-300"
-                    >
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#2fc6ff]/30 bg-[#101a2e] text-[#2fc6ff]">
-                            <QrCode size={20} weight="bold" />
-                        </div>
-                        Scan
-                    </button>
-
-                    <button
-                        onClick={() => setActiveTab("history")}
-                        className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === "history" ? "text-[#2fc6ff]" : "text-slate-500"
-                            }`}
-                    >
+                    <button onClick={() => setActiveTab("history")} className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === "history" ? "text-[#2fc6ff]" : "text-slate-500"}`}>
                         <ClockCounterClockwise size={22} weight={activeTab === "history" ? "fill" : "regular"} />
                         History
                     </button>
-
-                    <button
-                        onClick={() => setActiveTab("profile")}
-                        className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === "profile" ? "text-[#2fc6ff]" : "text-slate-500"
-                            }`}
-                    >
+                    <button onClick={() => refreshLocationAndSession(true)} className="flex flex-col items-center gap-1 text-[10px] font-medium text-slate-300">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#2fc6ff]/30 bg-[#101a2e] text-[#2fc6ff]">
+                            <MapPin size={20} weight="bold" />
+                        </div>
+                        Refresh
+                    </button>
+                    <button onClick={() => setActiveTab("profile")} className={`flex flex-col items-center gap-1 text-[10px] font-medium ${activeTab === "profile" ? "text-[#2fc6ff]" : "text-slate-500"}`}>
                         <UserIcon size={22} weight={activeTab === "profile" ? "fill" : "regular"} />
                         Profile
                     </button>
