@@ -32,7 +32,24 @@ app.get("/api/health", (req, res) => {
 // Start server
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log("✅ Connected to Supabase");
   console.log(`🚀 Server running on port ${PORT}`);
+});
+
+// Keep a strong reference to the server in case runtime/tooling unrefs it.
+if (typeof server.ref === "function") {
+  server.ref();
+}
+
+server.on("error", (err) => {
+  console.error("❌ HTTP server error:", err);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("❌ Uncaught exception:", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("❌ Unhandled rejection:", reason);
 });
