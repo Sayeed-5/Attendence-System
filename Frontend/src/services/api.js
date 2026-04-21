@@ -2,7 +2,7 @@ import axios from "axios";
 import { supabase } from "../config/supabase";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "https://attendence-system-backend-j9h5.onrender.com/api",
+  baseURL: import.meta.env.VITE_API_URL || "https://attendence-system-backend-1.onrender.com/api",
   timeout: 15000, // 15s timeout for mobile data
   headers: {
     "Content-Type": "application/json",
