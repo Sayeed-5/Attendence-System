@@ -1,21 +1,25 @@
 import axios from "axios";
-import { auth } from "../config/firebase";
+import { supabase } from "../config/supabase";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "https://attendence-system-backend-j9h5.onrender.com/api",
   timeout: 15000, // 15s timeout for mobile data
   headers: {
     "Content-Type": "application/json",
+    "Cache-Control": "no-cache",
+    Pragma: "no-cache",
   },
 });
 
-// Attach Firebase ID token to every request
+// Attach Supabase access token to every request
 api.interceptors.request.use(
   async (config) => {
     try {
-      const user = auth.currentUser;
-      if (user) {
-        const token = await user.getIdToken();
+      if (!supabase) return config;
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      const token = data?.session?.access_token;
+      if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
     } catch (err) {
@@ -31,9 +35,16 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token expired — user needs to re-login
-      console.warn("Auth expired, redirecting to login");
-      window.location.href = "/login";
+      // Prevent hard loops on login endpoint while still recovering from expired sessions.
+      const reqUrl = String(error.config?.url || "");
+      const isLoginApi = reqUrl.includes("/user/login");
+      if (!isLoginApi) {
+        void supabase?.auth?.signOut?.({ scope: "local" });
+      }
+      if (window.location.pathname !== "/login") {
+        console.warn("Auth expired, redirecting to login");
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   }

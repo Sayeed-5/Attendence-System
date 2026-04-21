@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
@@ -12,10 +12,8 @@ import {
     Clock,
     ClockCounterClockwise,
     FunnelSimple,
-    GearSix,
     House,
     IdentificationCard,
-    Lightning,
     MapPin,
     Phone,
     SignOut,
@@ -24,6 +22,8 @@ import {
     User as UserIcon,
     Warning,
 } from "@phosphor-icons/react";
+import StudentHeader from "../components/student/StudentHeader";
+import StudentNotificationCenter from "../components/student/StudentNotificationCenter";
 
 function getDistance(lat1, lon1, lat2, lon2) {
     const r = 6371e3;
@@ -92,6 +92,13 @@ function getHistoryCode(record) {
     return record?.sessionId?.sessionCode || "Active session";
 }
 
+function formatNotificationTime(value) {
+    return new Date(value).toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+}
+
 export default function StudentDashboard() {
     const navigate = useNavigate();
     const { user, updateProfile, logout } = useAuth();
@@ -107,6 +114,8 @@ export default function StudentDashboard() {
     const [loadingHistory, setLoadingHistory] = useState(true);
     const [marking, setMarking] = useState(false);
     const [historyFilter, setHistoryFilter] = useState("all");
+    const [notifications, setNotifications] = useState([]);
+    const [notificationOpen, setNotificationOpen] = useState(false);
 
     const [name, setName] = useState(user?.name || "");
     const [regNo, setRegNo] = useState(user?.regNo || "");
@@ -116,6 +125,9 @@ export default function StudentDashboard() {
 
     const isProfileComplete = user && user.regNo && user.branch && user.semester && user.mobileNo;
     const [isEditingProfile, setIsEditingProfile] = useState(!isProfileComplete);
+    const previousSessionIdRef = useRef(null);
+    const hasBootstrappedSessionRef = useRef(false);
+    const locationIntervalRef = useRef(null);
 
     useEffect(() => {
         setName(user?.name || "");
@@ -133,15 +145,36 @@ export default function StudentDashboard() {
 
         fetchStats();
         fetchHistory();
-        refreshLocationAndSession(false);
+        refreshLocationAndSession(false, false);
     }, [user, isProfileComplete]);
 
     useEffect(() => {
-        const interval = setInterval(() => {
-            fetchActiveSession(location, false);
-        }, 20000);
+        if (locationIntervalRef.current) {
+            clearInterval(locationIntervalRef.current);
+        }
 
-        return () => clearInterval(interval);
+        locationIntervalRef.current = setInterval(() => {
+            if (document.visibilityState === "visible") {
+                fetchActiveSession(location, false, { notifyOnChange: true });
+                fetchStats();
+            }
+        }, 10000);
+
+        const handleVisibility = () => {
+            if (document.visibilityState === "visible") {
+                fetchActiveSession(location, false, { notifyOnChange: true });
+                fetchStats();
+            }
+        };
+
+        window.addEventListener("focus", handleVisibility);
+        document.addEventListener("visibilitychange", handleVisibility);
+
+        return () => {
+            if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
+            window.removeEventListener("focus", handleVisibility);
+            document.removeEventListener("visibilitychange", handleVisibility);
+        };
     }, [location]);
 
     const attendancePercentage = stats?.percentage || 0;
@@ -150,6 +183,7 @@ export default function StudentDashboard() {
     const absentSessions = Math.max(totalSessions - attendedSessions, 0);
     const recentSessions = useMemo(() => history.slice(0, 5), [history]);
     const streakValue = stats?.streak || Math.min(attendedSessions, 5);
+    const unreadCount = notifications.filter((item) => !item.read).length;
 
     const isWithinRadius = useMemo(() => {
         if (typeof activeSession?.isWithinRadius === "boolean") return activeSession.isWithinRadius;
@@ -222,9 +256,10 @@ export default function StudentDashboard() {
         }
     }
 
-    async function fetchActiveSession(currentLocation = location, withLoader = true) {
+    async function fetchActiveSession(currentLocation = location, withLoader = true, options = {}) {
         if (withLoader) setLoadingSession(true);
         try {
+            const { notifyOnChange = false } = options;
             const params = {};
             if (currentLocation?.lat != null && currentLocation?.lng != null) {
                 params.lat = currentLocation.lat;
@@ -232,10 +267,33 @@ export default function StudentDashboard() {
             }
 
             const res = await api.get("/session/active", { params });
-            setActiveSession(res.data || null);
+            const nextSession = res.data || null;
+            const nextSessionId = nextSession?.sessionId || nextSession?._id || null;
+            const previousSessionId = previousSessionIdRef.current;
 
-            if (res.data?.location && currentLocation) {
-                setDistanceVal(getDistance(currentLocation.lat, currentLocation.lng, res.data.location.lat, res.data.location.lng));
+            setActiveSession(nextSession);
+
+            if (notifyOnChange && hasBootstrappedSessionRef.current) {
+                if (nextSessionId && nextSessionId !== previousSessionId) {
+                    pushNotification({
+                        title: "New session is live",
+                        message: `${nextSession.subject} is now available for attendance.`,
+                        tone: "success",
+                    }, true);
+                } else if (!nextSessionId && previousSessionId) {
+                    pushNotification({
+                        title: "Session closed",
+                        message: "The live attendance window has ended.",
+                        tone: "info",
+                    }, false);
+                }
+            }
+
+            previousSessionIdRef.current = nextSessionId;
+            hasBootstrappedSessionRef.current = true;
+
+            if (nextSession?.location && currentLocation) {
+                setDistanceVal(getDistance(currentLocation.lat, currentLocation.lng, nextSession.location.lat, nextSession.location.lng));
             } else {
                 setDistanceVal(null);
             }
@@ -247,10 +305,32 @@ export default function StudentDashboard() {
         }
     }
 
-    function refreshLocationAndSession(showToast) {
+    function pushNotification(notification, showToast = false) {
+        const payload = {
+            id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            read: false,
+            createdAt: new Date().toISOString(),
+            timeLabel: formatNotificationTime(new Date()),
+            ...notification,
+        };
+
+        setNotifications((current) => [payload, ...current].slice(0, 12));
+
+        if (showToast) {
+            if (notification.tone === "success") {
+                toast.success(notification.message);
+            } else if (notification.tone === "warning") {
+                toast(notification.message);
+            } else {
+                toast(notification.message);
+            }
+        }
+    }
+
+    function refreshLocationAndSession(showToast, notifyOnChange = true) {
         if (!navigator.geolocation) {
             setLocationStatus("error");
-            fetchActiveSession(null, true);
+            fetchActiveSession(null, true, { notifyOnChange });
             return;
         }
 
@@ -260,12 +340,12 @@ export default function StudentDashboard() {
                 const nextLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
                 setLocation(nextLocation);
                 setLocationStatus("ready");
-                await fetchActiveSession(nextLocation, true);
+                await fetchActiveSession(nextLocation, true, { notifyOnChange });
             },
             async () => {
                 setLocation(null);
                 setLocationStatus("error");
-                await fetchActiveSession(null, true);
+                await fetchActiveSession(null, true, { notifyOnChange });
                 if (showToast) toast.error("Please enable location access to mark attendance");
             },
             { enableHighAccuracy: true, timeout: 10000 }
@@ -290,6 +370,11 @@ export default function StudentDashboard() {
 
             toast.success(res.data.message);
             await Promise.all([fetchStats(), fetchHistory(), fetchActiveSession(location, false)]);
+            pushNotification({
+                title: "Attendance marked",
+                message: res.data.message,
+                tone: "success",
+            }, false);
         } catch (err) {
             toast.error(err.response?.data?.msg || "Failed to mark attendance");
             await fetchActiveSession(location, false);
@@ -312,6 +397,10 @@ export default function StudentDashboard() {
     async function handleLogout() {
         await logout();
         navigate("/login", { replace: true });
+    }
+
+    function markAllNotificationsRead() {
+        setNotifications((current) => current.map((item) => ({ ...item, read: true })));
     }
 
     function renderAttendanceTab() {
@@ -810,47 +899,29 @@ export default function StudentDashboard() {
     return (
         <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(20,31,55,0.96),rgba(5,10,24,1)_58%)] text-slate-200">
             <main className="mx-auto min-h-screen w-full max-w-[1540px] px-5 pb-28 pt-4 sm:px-6 lg:px-8 lg:pb-10">
-                <section className="mb-9">
-                    <div className="flex items-center justify-between rounded-[24px] border border-white/6 bg-[#191e2a]/96 px-5 py-4 shadow-[0_14px_36px_rgba(0,0,0,0.22)]">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#111827]">
-                                <Lightning size={20} weight="fill" />
-                            </div>
-                            <div>
-                                <p className="text-base font-semibold text-white">Student Dashboard</p>
-                                <p className="mt-0.5 text-xs text-slate-500">Track live attendance, history, and profile in one place.</p>
-                            </div>
-                        </div>
-
-                        <div className="hidden items-center gap-3 lg:flex">
-                            <div className="flex items-center gap-1 rounded-[16px] border border-white/6 bg-[#141a26] p-1">
-                                {navItems.map((item) => (
-                                    <button
-                                        key={item.key}
-                                        onClick={() => setActiveTab(item.key)}
-                                        className={`rounded-[12px] px-5 py-2 text-sm font-semibold transition ${activeTab === item.key ? "bg-[#2dc6ef] text-[#05131d]" : "text-slate-400 hover:text-white"
-                                            }`}
-                                    >
-                                        {item.label}
-                                    </button>
-                                ))}
-                            </div>
-
-                            <button
-                                onClick={() => setActiveTab("profile")}
-                                className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 hover:bg-white/5 transition"
-                            >
-                                <GearSix size={18} weight="bold" />
-                            </button>
-                        </div>
-                    </div>
-                </section>
+                <StudentHeader
+                    activeTab={activeTab}
+                    navItems={navItems}
+                    activeSession={activeSession}
+                    unreadCount={unreadCount}
+                    onOpenNotifications={() => setNotificationOpen(true)}
+                    onOpenProfile={() => setActiveTab("profile")}
+                    onTabChange={setActiveTab}
+                />
 
                 {activeTab === "home" && renderHomeTab()}
                 {activeTab === "attendance" && renderAttendanceTab()}
                 {activeTab === "history" && renderHistoryTab()}
                 {activeTab === "profile" && renderProfileTab()}
             </main>
+
+            <StudentNotificationCenter
+                open={notificationOpen}
+                notifications={notifications}
+                unreadCount={unreadCount}
+                onClose={() => setNotificationOpen(false)}
+                onMarkAllRead={markAllNotificationsRead}
+            />
 
             <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-5 lg:hidden">
                 <div className="mx-auto flex w-full max-w-xl items-center justify-between rounded-[24px] border border-white/6 bg-[#0e1320]/94 px-4 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl">

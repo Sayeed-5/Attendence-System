@@ -2,34 +2,15 @@
 const express = require("express");
 const router = express.Router();
 const { v4: uuidv4 } = require("uuid");
-const Session = require("../models/Session");
-const User = require("../models/User");
-const Attendance = require("../models/Attendance");
+const supabase = require("../supabaseClient");
 const { verifyToken } = require("../middleware/auth");
+const { fromDbUser, fromDbSession } = require("../supabase/mappers");
 
-function getSessionEndTime(startTime, timeLimit, existingEndTime) {
-  if (existingEndTime) {
-    return new Date(existingEndTime);
-  }
-
-  const durationMinutes =
-    Number.isFinite(Number(timeLimit)) && Number(timeLimit) > 0
-      ? Number(timeLimit)
-      : 60;
-
-  return new Date(new Date(startTime).getTime() + durationMinutes * 60 * 1000);
-}
-
-function isSessionWithinWindow(session, now = new Date()) {
-  const startTime = new Date(session.startTime);
-  const endTime = getSessionEndTime(
-    session.startTime,
-    session.timeLimit,
-    session.endTime
-  );
-
-  return now >= startTime && now <= endTime;
-}
+const mapSession = (row) => {
+  if (!row) return row;
+  const session = fromDbSession(row);
+  return { ...session, _id: session.id };
+};
 
 function getDistance(lat1, lon1, lat2, lon2) {
   const earthRadius = 6371e3;
@@ -45,28 +26,54 @@ function getDistance(lat1, lon1, lat2, lon2) {
   return earthRadius * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
-async function closeExpiredSessions(filter = {}) {
-  const now = new Date();
+async function closeExpiredSessions(teacherId = null) {
+  const now = new Date().toISOString();
 
-  await Session.updateMany(
-    {
-      isActive: true,
-      endTime: { $lt: now },
-      ...filter,
-    },
-    { $set: { isActive: false } }
-  );
+  let query = supabase
+    .from("sessions")
+    .update({ is_active: false })
+    .eq("is_active", true)
+    .lt("end_time", now);
+
+  if (teacherId) {
+    query = query.eq("teacher_id", teacherId);
+  }
+
+  await query;
 }
 
 /**
  * POST /api/session/create
- * Teacher creates a new attendance session
  */
 router.post("/create", verifyToken, async (req, res) => {
   try {
-    // Verify user is a teacher
-    const teacher = await User.findOne({ firebaseUid: req.firebaseUser.uid });
-    if (!teacher || teacher.role !== "teacher") {
+    let { data: teacherRow, error: teacherError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("auth_user_id", req.firebaseUser.uid)
+      .maybeSingle();
+
+    if (teacherError) throw teacherError;
+
+    // Fallback for legacy/admin-created rows: bind by email if auth_user_id is missing/mismatched.
+    if (!teacherRow && req.firebaseUser.email) {
+      const { data: emailRow, error: emailError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", req.firebaseUser.email)
+        .maybeSingle();
+      if (emailError) throw emailError;
+      if (emailRow) {
+        teacherRow = emailRow;
+        await supabase
+          .from("users")
+          .update({ auth_user_id: req.firebaseUser.uid })
+          .eq("id", emailRow.id);
+      }
+    }
+
+    const teacher = fromDbUser(teacherRow);
+    if (!teacherRow || !teacher || teacher.role !== "teacher") {
       return res.status(403).json({ msg: "Only teachers can create sessions" });
     }
 
@@ -76,7 +83,6 @@ router.post("/create", verifyToken, async (req, res) => {
       return res.status(400).json({ msg: "Subject is required" });
     }
 
-    // Force strict hardcoded college location
     const lat = 20.217426;
     const lng = 85.682104;
 
@@ -85,30 +91,39 @@ router.post("/create", verifyToken, async (req, res) => {
         ? Number(timeLimit)
         : 60;
 
-    // Only one active session is allowed per teacher.
-    await Session.updateMany(
-      { teacherId: teacher._id, isActive: true },
-      { $set: { isActive: false, endTime: new Date() } }
-    );
+    await supabase
+      .from("sessions")
+      .update({ is_active: false, end_time: new Date().toISOString() })
+      .eq("teacher_id", teacher.id)
+      .eq("is_active", true);
 
-    // Generate unique session code for backward compatibility with the schema.
     const sessionCode = uuidv4().slice(0, 8).toUpperCase();
     const startTime = new Date();
     const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
 
-    const session = await Session.create({
-      teacherId: teacher._id,
-      subject,
-      sessionCode,
-      startTime,
-      endTime,
-      timeLimit: durationMinutes,
-      location: { lat, lng },
-      radius: 100,
-      isActive: true,
-    });
+    const { data: sessionRow, error } = await supabase
+      .from("sessions")
+      .insert([
+        {
+          teacher_id: teacher.id,
+          subject,
+          session_code: sessionCode,
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
+          time_limit: durationMinutes,
+          location: { lat, lng },
+          latitude: lat,
+          longitude: lng,
+          radius: 100,
+          is_active: true,
+        },
+      ])
+      .select()
+      .single();
 
-    res.json(session);
+    if (error) throw error;
+
+    res.json(mapSession(sessionRow));
   } catch (err) {
     console.error("Create session error:", err.message);
     res.status(500).json({ msg: "Server error" });
@@ -117,59 +132,101 @@ router.post("/create", verifyToken, async (req, res) => {
 
 /**
  * GET /api/session/teacher/sessions
- * Get all sessions created by the logged-in teacher
  */
 router.get("/teacher/sessions", verifyToken, async (req, res) => {
   try {
-    const teacher = await User.findOne({ firebaseUid: req.firebaseUser.uid });
+    let { data: teacherRow } = await supabase
+      .from("users")
+      .select("*")
+      .eq("auth_user_id", req.firebaseUser.uid)
+      .maybeSingle();
+
+    if (!teacherRow && req.firebaseUser.email) {
+      const { data: emailRow } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", req.firebaseUser.email)
+        .maybeSingle();
+      if (emailRow) {
+        teacherRow = emailRow;
+        await supabase.from("users").update({ auth_user_id: req.firebaseUser.uid }).eq("id", emailRow.id);
+      }
+    }
+
+    const teacher = fromDbUser(teacherRow);
     if (!teacher) return res.status(404).json({ msg: "User not found" });
 
-    await closeExpiredSessions({ teacherId: teacher._id });
+    await closeExpiredSessions(teacher.id);
 
-    const sessions = await Session.find({ teacherId: teacher._id })
-      .sort({ createdAt: -1 })
-      .lean();
+    const { data: sessionRows, error } = await supabase
+      .from("sessions")
+      .select("*")
+      .eq("teacher_id", teacher.id)
+      .order("created_at", { ascending: false });
 
-    // Fetch attendance count for each session
-    const sessionsWithStats = await Promise.all(sessions.map(async (session) => {
-      const attendees = await Attendance.countDocuments({ sessionId: session._id, status: { $in: ["present", "flagged"] } });
-      return {
-        ...session,
-        attendees
-      };
-    }));
+    if (error) throw error;
+
+    const sessionsWithStats = await Promise.all(
+      (sessionRows || []).map(async (row) => {
+        const session = fromDbSession(row);
+        const { count } = await supabase
+          .from("attendance")
+          .select("*", { count: "exact", head: true })
+          .eq("session_id", session.id)
+          .in("status", ["present", "flagged"]);
+
+        return {
+          ...mapSession(row),
+          attendees: count || 0,
+        };
+      })
+    );
 
     res.json(sessionsWithStats);
   } catch (err) {
+    console.error("Teacher sessions error:", err.message);
     res.status(500).json({ msg: "Server error" });
   }
 });
 
 /**
  * GET /api/session/active
- * Get the latest live active session for students
  */
 router.get("/active", verifyToken, async (req, res) => {
   try {
     await closeExpiredSessions();
 
-    const now = new Date();
-    const activeSession = await Session.findOne({
-      isActive: true,
-      startTime: { $lte: now },
-      endTime: { $gte: now },
-    })
-      .populate("teacherId", "name")
-      .sort({ startTime: -1 })
-      .lean();
+    const nowIso = new Date().toISOString();
 
-    if (!activeSession || !isSessionWithinWindow(activeSession, now)) {
+    const { data: activeSessionRows, error } = await supabase
+      .from("sessions")
+      .select("*")
+      .eq("is_active", true)
+      .lte("start_time", nowIso)
+      .gte("end_time", nowIso)
+      .order("start_time", { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+
+    const activeSession = activeSessionRows?.[0] ? fromDbSession(activeSessionRows[0]) : null;
+
+    // Time window is already enforced in SQL (start_time <= now <= end_time). A second
+    // JS-only check was rejecting valid rows when Postgres `timestamp` vs Date parsing differed.
+    if (!activeSession) {
       return res.json(null);
     }
 
-    const totalMarked = await Attendance.countDocuments({
-      sessionId: activeSession._id,
-    });
+    const { data: teacherData } = await supabase
+      .from("users")
+      .select("name")
+      .eq("id", activeSession.teacherId)
+      .maybeSingle();
+
+    const { count: totalMarked } = await supabase
+      .from("attendance")
+      .select("*", { count: "exact", head: true })
+      .eq("session_id", activeSession.id);
 
     const lat = Number(req.query.lat);
     const lng = Number(req.query.lng);
@@ -192,24 +249,35 @@ router.get("/active", verifyToken, async (req, res) => {
     }
 
     let alreadyMarked = false;
-    const currentUser = await User.findOne({ firebaseUid: req.firebaseUser.uid }).lean();
+    const { data: currentUserRow } = await supabase
+      .from("users")
+      .select("*")
+      .eq("auth_user_id", req.firebaseUser.uid)
+      .maybeSingle();
+
+    const currentUser = fromDbUser(currentUserRow);
     if (currentUser?.role === "student") {
-      alreadyMarked = !!(await Attendance.findOne({
-        studentId: currentUser._id,
-        sessionId: activeSession._id,
-      }).lean());
+      const { data: att } = await supabase
+        .from("attendance")
+        .select("id")
+        .eq("student_id", currentUser.id)
+        .eq("session_id", activeSession.id)
+        .maybeSingle();
+
+      alreadyMarked = !!att;
     }
 
     res.json({
-      _id: activeSession._id,
-      sessionId: activeSession._id,
-      teacherName: activeSession.teacherId?.name || "Teacher",
+      _id: activeSession.id,
+      sessionId: activeSession.id,
+      sessionCode: activeSession.sessionCode,
+      teacherName: teacherData?.name || "Teacher",
       subject: activeSession.subject,
       startTime: activeSession.startTime,
       endTime: activeSession.endTime,
       location: activeSession.location,
       radius: activeSession.radius || 100,
-      totalMarked,
+      totalMarked: totalMarked || 0,
       isWithinRadius,
       alreadyMarked,
       isActive: true,
@@ -222,59 +290,257 @@ router.get("/active", verifyToken, async (req, res) => {
 
 /**
  * GET /api/session/code/:sessionCode
- * Backward-compatible session lookup
  */
 router.get("/code/:sessionCode", verifyToken, async (req, res) => {
   try {
-    const session = await Session.findOne({
-      sessionCode: req.params.sessionCode,
-    });
-    if (!session) return res.status(404).json({ msg: "Session not found" });
+    const { data: sessionRow, error } = await supabase
+      .from("sessions")
+      .select("*")
+      .eq("session_code", req.params.sessionCode)
+      .maybeSingle();
 
-    // Session auto-close logic removed - managed manually now
-    
-    res.json(session);
+    if (error) throw error;
+    if (!sessionRow) return res.status(404).json({ msg: "Session not found" });
+
+    res.json(mapSession(sessionRow));
   } catch (err) {
+    console.error("Code lookup error:", err.message);
     res.status(500).json({ msg: "Server error" });
   }
 });
 
 /**
  * GET /api/session/:id
- * Get session by MongoDB ID
  */
 router.get("/:id", verifyToken, async (req, res) => {
   try {
-    const session = await Session.findById(req.params.id);
-    if (!session) return res.status(404).json({ msg: "Session not found" });
-    res.json(session);
+    const { data: sessionRow, error } = await supabase
+      .from("sessions")
+      .select("*")
+      .eq("id", req.params.id)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!sessionRow) return res.status(404).json({ msg: "Session not found" });
+
+    res.json(mapSession(sessionRow));
   } catch (err) {
+    console.error("ID lookup error:", err.message);
     res.status(500).json({ msg: "Server error" });
   }
 });
 
 /**
  * PATCH /api/session/:id/end
- * Teacher manually ends a session
  */
 router.patch("/:id/end", verifyToken, async (req, res) => {
   try {
-    const teacher = await User.findOne({ firebaseUid: req.firebaseUser.uid });
-    const session = await Session.findById(req.params.id);
+    let { data: teacherRow } = await supabase
+      .from("users")
+      .select("*")
+      .eq("auth_user_id", req.firebaseUser.uid)
+      .maybeSingle();
 
-    if (!session) return res.status(404).json({ msg: "Session not found" });
-    if (session.teacherId.toString() !== teacher._id.toString()) {
+    if (!teacherRow && req.firebaseUser.email) {
+      const { data: emailRow } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", req.firebaseUser.email)
+        .maybeSingle();
+      if (emailRow) {
+        teacherRow = emailRow;
+        await supabase.from("users").update({ auth_user_id: req.firebaseUser.uid }).eq("id", emailRow.id);
+      }
+    }
+
+    const teacher = fromDbUser(teacherRow);
+    if (!teacherRow || !teacher) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    const { data: sessionRow } = await supabase
+      .from("sessions")
+      .select("*")
+      .eq("id", req.params.id)
+      .maybeSingle();
+
+    if (!sessionRow) return res.status(404).json({ msg: "Session not found" });
+
+    const session = fromDbSession(sessionRow);
+    if (session.teacherId !== teacher.id) {
       return res.status(403).json({ msg: "Not your session" });
     }
 
-    session.isActive = false;
-    session.endTime = new Date(); // Using endTime to mark when session actually ended
-    await session.save();
+    const { error: updateError } = await supabase
+      .from("sessions")
+      .update({ is_active: false, end_time: new Date().toISOString() })
+      .eq("id", session.id);
 
-    res.json(session);
+    if (updateError) throw updateError;
+    
+    const { data: updatedRow } = await supabase
+      .from("sessions")
+      .select("*")
+      .eq("id", session.id)
+      .maybeSingle();
+
+    res.json(mapSession(updatedRow || session));
   } catch (err) {
+    console.error("End session error:", err.message);
     res.status(500).json({ msg: "Server error" });
   }
 });
 
 module.exports = router;
+
+async function requireAdmin(req, res) {
+  const { data: me, error } = await supabase
+    .from("users")
+    .select("id, role")
+    .eq("auth_user_id", req.firebaseUser.uid)
+    .maybeSingle();
+  if (error) {
+    res.status(500).json({ msg: "Server error" });
+    return null;
+  }
+  if (!me || me.role !== "admin") {
+    res.status(403).json({ msg: "Admin only" });
+    return null;
+  }
+  return me;
+}
+
+/**
+ * ADMIN: GET /api/session/admin/sessions?page=1&limit=100
+ */
+router.get("/admin/sessions", verifyToken, async (req, res) => {
+  try {
+    const admin = await requireAdmin(req, res);
+    if (!admin) return;
+
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 100));
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+    const search = String(req.query.search || "").trim();
+
+    let query = supabase
+      .from("sessions")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    if (search) {
+      query = query.or(`subject.ilike.%${search}%,session_code.ilike.%${search}%`);
+    }
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    res.json({ data: (data || []).map(mapSession), page, limit, total: count || 0 });
+  } catch (err) {
+    res.status(500).json({ msg: err.message || "Server error" });
+  }
+});
+
+/**
+ * ADMIN: POST /api/session/admin/sessions
+ * Body: { teacherId, subject, timeLimit, radius, isActive }
+ */
+router.post("/admin/sessions", verifyToken, async (req, res) => {
+  try {
+    const admin = await requireAdmin(req, res);
+    if (!admin) return;
+
+    const { teacherId, subject, timeLimit, radius, isActive, startTime, endTime, locationLabel } = req.body || {};
+    if (!teacherId || !subject) return res.status(400).json({ msg: "teacherId and subject are required" });
+
+    const durationMinutes =
+      Number.isFinite(Number(timeLimit)) && Number(timeLimit) > 0 ? Number(timeLimit) : 60;
+    const startDate = startTime ? new Date(startTime) : new Date();
+    const endDate = endTime
+      ? new Date(endTime)
+      : new Date(startDate.getTime() + durationMinutes * 60 * 1000);
+    const sessionCode = uuidv4().slice(0, 8).toUpperCase();
+    const resolvedLocation = locationLabel
+      ? { label: String(locationLabel).trim() }
+      : null;
+
+    const { data: sessionRow, error } = await supabase
+      .from("sessions")
+      .insert([
+        {
+          teacher_id: teacherId,
+          subject,
+          session_code: sessionCode,
+          start_time: startDate.toISOString(),
+          end_time: endDate.toISOString(),
+          time_limit: durationMinutes,
+          radius: Number(radius) > 0 ? Number(radius) : 100,
+          is_active: Boolean(isActive),
+          location: resolvedLocation,
+        },
+      ])
+      .select()
+      .single();
+    if (error) throw error;
+
+    res.json(mapSession(sessionRow));
+  } catch (err) {
+    res.status(500).json({ msg: err.message || "Server error" });
+  }
+});
+
+/**
+ * ADMIN: PATCH /api/session/admin/sessions/:id
+ */
+router.patch("/admin/sessions/:id", verifyToken, async (req, res) => {
+  try {
+    const admin = await requireAdmin(req, res);
+    if (!admin) return;
+
+    const id = req.params.id;
+    const body = req.body || {};
+
+    const updateData = {};
+    if (body.subject !== undefined) updateData.subject = body.subject;
+    if (body.isActive !== undefined) updateData.is_active = Boolean(body.isActive);
+    if (body.endTime !== undefined) updateData.end_time = body.endTime;
+    if (body.startTime !== undefined) updateData.start_time = body.startTime;
+    if (body.timeLimit !== undefined) updateData.time_limit = Number(body.timeLimit) || 60;
+    if (body.radius !== undefined) updateData.radius = Number(body.radius) || 100;
+    if (body.locationLabel !== undefined) {
+      updateData.location = body.locationLabel ? { label: String(body.locationLabel).trim() } : null;
+    }
+
+    const { data: row, error } = await supabase
+      .from("sessions")
+      .update(updateData)
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+    if (error) throw error;
+    if (!row) return res.status(404).json({ msg: "Session not found" });
+
+    res.json(mapSession(row));
+  } catch (err) {
+    res.status(500).json({ msg: err.message || "Server error" });
+  }
+});
+
+/**
+ * ADMIN: DELETE /api/session/admin/sessions/:id
+ */
+router.delete("/admin/sessions/:id", verifyToken, async (req, res) => {
+  try {
+    const admin = await requireAdmin(req, res);
+    if (!admin) return;
+
+    const id = req.params.id;
+    const { error } = await supabase.from("sessions").delete().eq("id", id);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ msg: err.message || "Server error" });
+  }
+});

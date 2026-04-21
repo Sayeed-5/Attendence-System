@@ -245,7 +245,7 @@ export default function TeacherDashboard() {
             fetchSessions();
             fetchStats();
         } catch (err) {
-            toast.error("Failed to end session");
+            toast.error(err.response?.data?.msg || "Failed to end session");
         }
     };
 

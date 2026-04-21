@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
@@ -10,31 +10,52 @@ import {
 import toast from "react-hot-toast";
 
 export default function LoginPage() {
-    const { loginWithGoogle, loginTeacher, user, loading } = useAuth();
+    const { loginWithGoogle, loginWithEmailPassword, user, loading } = useAuth();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState("student");
     const [isLogging, setIsLogging] = useState(false);
 
     // Teacher form state
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
+    const [teacherEmail, setTeacherEmail] = useState("");
+    const [teacherPassword, setTeacherPassword] = useState("");
+    // Student email/password state (optional alternative to Google)
+    const [studentEmail, setStudentEmail] = useState("");
+    const [studentPassword, setStudentPassword] = useState("");
 
-    // If already logged in, redirect
-    if (!loading && user) {
-        navigate(user.role === "teacher" ? "/teacher" : "/student", {
-            replace: true,
-        });
-        return null;
-    }
+    useEffect(() => {
+        if (!loading && user) {
+            navigate(user.role === "teacher" ? "/teacher" : "/student", {
+                replace: true,
+            });
+        }
+    }, [loading, user, navigate]);
 
     const handleStudentLogin = async () => {
         setIsLogging(true);
         try {
-            const loggedUser = await loginWithGoogle();
-            toast.success(`Welcome, ${loggedUser.name}!`);
-            navigate("/student", { replace: true });
+            await loginWithGoogle();
         } catch (err) {
             toast.error("Google Login failed or cancelled.");
+            console.error(err);
+        } finally {
+            setIsLogging(false);
+        }
+    };
+
+    const handleStudentEmailLogin = async (e) => {
+        e.preventDefault();
+        setIsLogging(true);
+        try {
+            const loggedUser = await loginWithEmailPassword(studentEmail, studentPassword);
+            if (loggedUser?.role === "teacher") {
+                navigate("/teacher", { replace: true });
+                toast.success("Welcome, Teacher!");
+                return;
+            }
+            navigate("/student", { replace: true });
+            toast.success(`Welcome, ${loggedUser?.name || "Student"}!`);
+        } catch (err) {
+            toast.error("Invalid email/password credentials.");
             console.error(err);
         } finally {
             setIsLogging(false);
@@ -45,13 +66,15 @@ export default function LoginPage() {
         e.preventDefault();
         setIsLogging(true);
         try {
-            const loggedUser = await loginTeacher(email, password);
+            const loggedUser = await loginWithEmailPassword(teacherEmail, teacherPassword);
+            if (loggedUser?.role !== "teacher") {
+                toast.error("This account is not a teacher account.");
+                return;
+            }
             toast.success(`Welcome, Teacher!`);
             navigate("/teacher", { replace: true });
         } catch (err) {
-            toast.error(err.code === "auth/invalid-credential"
-                ? "Invalid teacher credentials."
-                : "Failed to login properly as Teacher.");
+            toast.error("Invalid teacher credentials.");
             console.error(err);
         } finally {
             setIsLogging(false);
@@ -135,6 +158,37 @@ export default function LoginPage() {
                                 )}
                                 {isLogging ? "Signing in..." : "Continue with Google"}
                             </button>
+                            <div className="relative py-1">
+                                <div className="border-t border-[#1a2744]" />
+                                <p className="absolute -top-2 left-1/2 -translate-x-1/2 bg-[#0f1629] px-2 text-[11px] text-[#64748b]">
+                                    OR
+                                </p>
+                            </div>
+                            <form onSubmit={handleStudentEmailLogin} className="space-y-3">
+                                <input
+                                    type="email"
+                                    required
+                                    value={studentEmail}
+                                    onChange={(e) => setStudentEmail(e.target.value)}
+                                    placeholder="Student Email"
+                                    className="w-full bg-[#060b18] border border-[#1a2744] rounded-xl px-4 py-3 text-[#e2e8f0] text-sm placeholder:text-[#64748b]/50 focus:outline-none focus:border-[#14b8a6] transition-colors duration-200"
+                                />
+                                <input
+                                    type="password"
+                                    required
+                                    value={studentPassword}
+                                    onChange={(e) => setStudentPassword(e.target.value)}
+                                    placeholder="Password"
+                                    className="w-full bg-[#060b18] border border-[#1a2744] rounded-xl px-4 py-3 text-[#e2e8f0] text-sm placeholder:text-[#64748b]/50 focus:outline-none focus:border-[#14b8a6] transition-colors duration-200"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={isLogging}
+                                    className="w-full flex items-center justify-center gap-2 bg-[#14b8a6]/90 hover:bg-[#14b8a6] text-white font-semibold py-3 rounded-xl transition-all duration-200 shadow-lg shadow-teal-500/20 active:scale-[0.98] disabled:opacity-60 cursor-pointer"
+                                >
+                                    {isLogging ? <SpinnerGap size={20} className="animate-spin" /> : "Login with Email"}
+                                </button>
+                            </form>
                         </div>
                     ) : (
                         /* Teacher Login Content */
@@ -149,8 +203,8 @@ export default function LoginPage() {
                                     <input
                                         type="email"
                                         required
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
+                                        value={teacherEmail}
+                                        onChange={(e) => setTeacherEmail(e.target.value)}
                                         placeholder="Teacher Email"
                                         className="w-full bg-[#060b18] border border-[#1a2744] rounded-xl px-4 py-3 text-[#e2e8f0] text-sm placeholder:text-[#64748b]/50 focus:outline-none focus:border-[#14b8a6] transition-colors duration-200"
                                     />
@@ -159,8 +213,8 @@ export default function LoginPage() {
                                     <input
                                         type="password"
                                         required
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
+                                        value={teacherPassword}
+                                        onChange={(e) => setTeacherPassword(e.target.value)}
                                         placeholder="Password"
                                         className="w-full bg-[#060b18] border border-[#1a2744] rounded-xl px-4 py-3 text-[#e2e8f0] text-sm placeholder:text-[#64748b]/50 focus:outline-none focus:border-[#14b8a6] transition-colors duration-200"
                                     />

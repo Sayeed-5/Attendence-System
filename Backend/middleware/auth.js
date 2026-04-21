@@ -1,16 +1,8 @@
-const admin = require("firebase-admin");
-
-// Initialize Firebase Admin SDK (uses Application Default Credentials or service account)
-// For now we use the project ID directly — in production, use a service account JSON
-if (!admin.apps.length) {
-  admin.initializeApp({
-    projectId: "attendance-system-6c1d1",
-  });
-}
+const supabaseAdmin = require("../supabaseAdminClient");
 
 /**
- * Auth middleware — verifies Firebase ID token from Authorization header
- * Attaches decoded user info to req.firebaseUser
+ * Auth middleware — verifies Supabase access token from Authorization header.
+ * Keeps req.firebaseUser key for backward compatibility with existing routes.
  */
 const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -22,13 +14,25 @@ const verifyToken = async (req, res, next) => {
   const token = authHeader.split("Bearer ")[1];
 
   try {
-    const decoded = await admin.auth().verifyIdToken(token);
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !data?.user) {
+      return res.status(401).json({ msg: "Invalid or expired token" });
+    }
+
+    const authUser = data.user;
+    const provider = authUser.app_metadata?.provider || "unknown";
     req.firebaseUser = {
-      uid: decoded.uid,
-      email: decoded.email,
-      name: decoded.name || decoded.email,
-      picture: decoded.picture || "",
-      provider: decoded.firebase?.sign_in_provider || "unknown",
+      uid: authUser.id,
+      email: authUser.email,
+      name:
+        authUser.user_metadata?.name ||
+        authUser.user_metadata?.full_name ||
+        authUser.email,
+      picture:
+        authUser.user_metadata?.avatar_url ||
+        authUser.user_metadata?.picture ||
+        "",
+      provider,
     };
     next();
   } catch (err) {
