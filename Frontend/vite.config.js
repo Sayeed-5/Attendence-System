@@ -24,8 +24,8 @@ export default defineConfig({
       },
       manifest: {
         id: "/",
-        name: "AttendanceMgr",
-        short_name: "AttendMgr",
+        name: "AstraAttend",
+        short_name: "AstraAttend",
         description: "Smart attendance management for admins, teachers, and students.",
         theme_color: "#090b10",
         background_color: "#090b10",
@@ -53,25 +53,25 @@ export default defineConfig({
         ],
         icons: [
           {
-            src: "/pwa-icon-192.png",
+            src: "/logo.png",
             sizes: "192x192",
             type: "image/png",
             purpose: "any",
           },
           {
-            src: "/pwa-icon-512.png",
+            src: "/logo.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "any",
           },
           {
-            src: "/pwa-icon-192.png",
+            src: "/logo.png",
             sizes: "192x192",
             type: "image/png",
             purpose: "maskable",
           },
           {
-            src: "/pwa-icon-512.png",
+            src: "/logo.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "maskable",
@@ -83,7 +83,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:5000",
+        target: "https://attendence-system-backend-1.onrender.com",
         changeOrigin: true,
       },
     },

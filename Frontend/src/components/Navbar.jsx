@@ -2,7 +2,6 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
     SignOut,
-    GraduationCap,
     ChalkboardTeacher,
 } from "@phosphor-icons/react";
 
@@ -20,11 +19,13 @@ export default function Navbar() {
             <div className="max-w-lg mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
                 {/* Logo */}
                 <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-[#14b8a6] flex items-center justify-center shadow-md shadow-teal-500/20">
-                        <GraduationCap size={18} weight="bold" className="text-white" />
-                    </div>
+                    <img
+                        src="/logo.png"
+                        alt="AstraAttend logo"
+                        className="h-8 w-8 rounded-lg object-cover shadow-md shadow-teal-500/20"
+                    />
                     <span className="text-[#e2e8f0] font-bold text-sm tracking-tight">
-                        AttendEase
+                        AstraAttend
                     </span>
                 </div>
 

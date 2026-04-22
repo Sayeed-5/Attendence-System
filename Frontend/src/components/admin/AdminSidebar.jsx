@@ -9,9 +9,11 @@ import {
 
 function BrandMark() {
   return (
-    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#7b61ff]/20 text-[#9d8cff] ring-1 ring-inset ring-[#7b61ff]/35">
-      <div className="h-4 w-4 rotate-45 rounded-[4px] border-2 border-current" />
-    </div>
+    <img
+      src="/logo.png"
+      alt="AstraAttend logo"
+      className="h-10 w-10 rounded-xl object-cover ring-1 ring-inset ring-[#7b61ff]/35"
+    />
   );
 }
 
@@ -30,7 +32,7 @@ export default function AdminSidebar({ user, navItems, activeTab, onTabChange, o
         <div className="flex items-center gap-3">
           <BrandMark />
           <div>
-            <p className="font-['Space_Grotesk'] text-xl font-bold tracking-tight text-[#8e7dff]">AttendanceMgr</p>
+            <p className="font-['Space_Grotesk'] text-xl font-bold tracking-tight text-[#8e7dff]">AstraAttend</p>
             <p className="text-xs text-slate-400">Admin control center</p>
           </div>
         </div>

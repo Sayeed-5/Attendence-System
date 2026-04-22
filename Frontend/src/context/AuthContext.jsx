@@ -4,6 +4,8 @@ import api from "../services/api";
 
 const AuthContext = createContext(null);
 
+const siteUrl = (import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin).replace(/\/$/, "");
+
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -144,7 +146,7 @@ export function AuthProvider({ children }) {
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: "google",
                 options: {
-                    redirectTo: `${window.location.origin}/login`,
+                    redirectTo: `${siteUrl}/login`,
                     skipBrowserRedirect: false,
                 },
             });

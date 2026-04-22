@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
-    GraduationCap,
     ChalkboardTeacher,
+    GraduationCap,
     GoogleLogo,
     SpinnerGap,
 } from "@phosphor-icons/react";
@@ -100,11 +100,13 @@ export default function LoginPage() {
             <div className="relative w-full max-w-md">
                 {/* Logo / Header */}
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#0f1629] mb-4 border border-[#1a2744] shadow-lg shadow-black/10">
-                        <GraduationCap size={36} weight="duotone" className="text-[#14b8a6]" />
-                    </div>
+                    <img
+                        src="/logo.png"
+                        alt="AstraAttend logo"
+                        className="mx-auto mb-4 h-16 w-16 rounded-2xl border border-[#1a2744] bg-[#0f1629] object-cover shadow-lg shadow-black/10"
+                    />
                     <h1 className="text-3xl font-bold text-[#e2e8f0] tracking-tight">
-                        AttendEase
+                        AstraAttend
                     </h1>
                     <p className="text-[#64748b] mt-2 text-sm">
                         Smart attendance for modern classrooms

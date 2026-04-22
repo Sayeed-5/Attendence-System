@@ -1,4 +1,4 @@
-import { BellSimple, GearSix, Lightning, Sparkle } from "@phosphor-icons/react";
+import { BellSimple, GearSix, Sparkle } from "@phosphor-icons/react";
 
 const brandName = "AstraAttend";
 
@@ -16,9 +16,11 @@ export default function StudentHeader({
       <div className="rounded-[26px] border border-white/6 bg-[#191e2a]/96 px-4 py-4 shadow-[0_14px_36px_rgba(0,0,0,0.22)] sm:px-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#8b73ff_0%,#2ec8ef_100%)] text-[#07131d] shadow-[0_14px_28px_rgba(46,200,239,0.22)]">
-              <Lightning size={20} weight="fill" />
-            </div>
+            <img
+              src="/logo.png"
+              alt="AstraAttend logo"
+              className="h-11 w-11 shrink-0 rounded-2xl object-cover shadow-[0_14px_28px_rgba(46,200,239,0.22)]"
+            />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <p className="truncate font-['Space_Grotesk'] text-lg font-bold tracking-tight text-white">{brandName}</p>

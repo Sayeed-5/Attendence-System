@@ -44,7 +44,7 @@ export default function AdminShell({ user, navItems, activeTab, onTabChange, onL
           <div className="mb-4 rounded-2xl border border-white/8 bg-white/5 px-4 py-3 shadow-[0_20px_60px_rgba(0,0,0,0.25)] backdrop-blur xl:hidden">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-white">Attendance Manager</p>
+                <p className="text-sm font-semibold text-white">AstraAttend</p>
                 <p className="text-xs text-slate-400">Admin workspace</p>
               </div>
               <button

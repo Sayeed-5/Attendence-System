@@ -6,7 +6,6 @@ import {
   ChartBar,
   CheckCircle,
   DeviceMobile,
-  GraduationCap,
   Lightning,
   ListChecks,
   Minus,
@@ -104,7 +103,7 @@ function PhoneMockup() {
       <div className="overflow-hidden rounded-[1.7rem] border border-white/6 bg-[#f4f5f7]">
         <div className="bg-[linear-gradient(180deg,#24354f_0%,#1b273c_100%)] px-4 pb-4 pt-6 text-white">
           <div className="mb-4 flex items-center justify-between text-[10px] uppercase tracking-[0.24em] text-white/55">
-            <span>AttendEase</span>
+            <span>AstraAttend</span>
             <span>Live</span>
           </div>
           <p className="text-sm font-semibold">Class: Design Thinking</p>
@@ -153,14 +152,16 @@ export default function LandingPage() {
           <header className="rounded-[28px] border border-white/6 bg-white/[0.03] px-6 py-4 backdrop-blur-md">
             <div className="flex items-center justify-between gap-6">
               <Link to="/" className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#9b7cf7] text-[#171321] shadow-[0_10px_25px_rgba(155,124,247,0.35)]">
-                  <GraduationCap size={22} weight="fill" />
-                </div>
+                <img
+                  src="/logo.png"
+                  alt="AstraAttend logo"
+                  className="h-10 w-10 rounded-2xl object-cover shadow-[0_10px_25px_rgba(155,124,247,0.35)]"
+                />
                 <span
                   className="text-2xl font-bold tracking-tight text-[#aa90ff]"
                   style={{ fontFamily: '"Space Grotesk", "Inter", sans-serif' }}
                 >
-                  AttendEase
+                  AstraAttend
                 </span>
               </Link>
 
@@ -211,7 +212,7 @@ export default function LandingPage() {
               </h1>
 
               <p className="mt-8 max-w-xl text-lg leading-9 text-white/70">
-                Eliminate paper sheets and manual entry. AttendEase gives
+                Eliminate paper sheets and manual entry. AstraAttend gives
                 schools a secure, fast, and polished way to handle classroom
                 attendance with QR-based check-ins and live records.
               </p>
@@ -316,7 +317,7 @@ export default function LandingPage() {
         <section id="features" className="py-20">
           <div className="mx-auto max-w-2xl text-center">
             <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#9b7cf7]">
-              Why schools choose AttendEase
+              Why schools choose AstraAttend
             </p>
             <h2
               className="mt-5 text-4xl font-bold text-white sm:text-5xl"
@@ -503,7 +504,7 @@ export default function LandingPage() {
                 Ready to digitize your classroom?
               </h3>
               <p className="mt-5 max-w-lg text-lg leading-8 text-[#2d2340]/88">
-                Join educators using AttendEase to save time on attendance and
+                Join educators using AstraAttend to save time on attendance and
                 spend more time teaching.
               </p>
               <div className="mt-8 flex flex-col gap-4 sm:flex-row">
@@ -529,14 +530,16 @@ export default function LandingPage() {
         <div className="mx-auto grid max-w-7xl gap-10 px-6 py-12 sm:px-8 lg:grid-cols-[1.15fr_0.85fr_0.85fr_0.85fr] lg:px-10">
           <div>
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#9b7cf7] text-[#171321]">
-                <GraduationCap size={22} weight="fill" />
-              </div>
+              <img
+                src="/logo.png"
+                alt="AstraAttend logo"
+                className="h-10 w-10 rounded-2xl object-cover"
+              />
               <span
                 className="text-2xl font-bold text-[#aa90ff]"
                 style={{ fontFamily: '"Space Grotesk", "Inter", sans-serif' }}
               >
-                AttendEase
+                AstraAttend
               </span>
             </div>
             <p className="mt-5 max-w-sm text-base leading-8 text-white/60">
@@ -594,7 +597,7 @@ export default function LandingPage() {
           </div>
         </div>
         <div className="border-t border-white/8 px-6 py-6 text-center text-sm text-white/40">
-          © {year} AttendEase. All rights reserved.
+          © {year} AstraAttend. All rights reserved.
         </div>
       </footer>
     </div>
