@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   date text,
   dept text,
   subject text,
+  course text,
   "deviceIds" jsonb NOT NULL DEFAULT '[]'::jsonb
 );
 
@@ -117,6 +118,7 @@ ALTER TABLE public.users ADD COLUMN IF NOT EXISTS "mobileNo" text;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS date text;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS dept text;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS subject text;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS course text;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS "deviceIds" jsonb NOT NULL DEFAULT '[]'::jsonb;
 
 CREATE UNIQUE INDEX IF NOT EXISTS users_firebase_uid_unique ON public.users ("firebaseUid")

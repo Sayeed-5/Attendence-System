@@ -124,11 +124,12 @@ router.get("/me", verifyToken, async (req, res) => {
  */
 router.put("/profile", verifyToken, async (req, res) => {
   try {
-    const { name, regNo, branch, semester, mobileNo, date, dept, subject } = req.body;
+    const { name, regNo, course, branch, semester, mobileNo, date, dept, subject } = req.body;
 
     const updateData = {};
     if (name !== undefined) updateData.name = name;
     if (regNo !== undefined) updateData.reg_no = regNo;
+    if (course !== undefined) updateData.course = course;
     if (branch !== undefined) updateData.branch = branch;
     if (semester !== undefined) updateData.semester = semester;
     if (mobileNo !== undefined) updateData.mobile_no = mobileNo;
@@ -212,6 +213,7 @@ router.post("/admin/users", verifyToken, async (req, res) => {
       password,
       role = "student",
       regNo,
+      course,
       branch,
       semester,
       mobileNo,
@@ -242,6 +244,7 @@ router.post("/admin/users", verifyToken, async (req, res) => {
       role,
       profile_picture: profilePicture || "",
       reg_no: regNo,
+      course,
       branch,
       semester,
       mobile_no: mobileNo,
@@ -274,6 +277,7 @@ router.patch("/admin/users/:id", verifyToken, async (req, res) => {
     if (body.email !== undefined) updateData.email = body.email;
     if (body.role !== undefined) updateData.role = body.role;
     if (body.regNo !== undefined) updateData.reg_no = body.regNo;
+    if (body.course !== undefined) updateData.course = body.course;
     if (body.branch !== undefined) updateData.branch = body.branch;
     if (body.semester !== undefined) updateData.semester = body.semester;
     if (body.mobileNo !== undefined) updateData.mobile_no = body.mobileNo;

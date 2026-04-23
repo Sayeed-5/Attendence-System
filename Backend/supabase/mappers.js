@@ -62,6 +62,7 @@ function fromDbUser(row) {
     profilePicture: row.profile_picture ?? "",
     role: row.role,
     regNo: row.reg_no,
+    course: row.course,
     branch: row.branch,
     semester: row.semester,
     mobileNo: row.mobile_no,

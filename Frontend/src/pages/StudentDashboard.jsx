@@ -8,6 +8,7 @@ import {
     BookBookmark,
     Buildings,
     CalendarBlank,
+    CaretDown,
     CheckCircle,
     Clock,
     ClockCounterClockwise,
@@ -120,10 +121,11 @@ export default function StudentDashboard() {
     const [name, setName] = useState(user?.name || "");
     const [regNo, setRegNo] = useState(user?.regNo || "");
     const [branch, setBranch] = useState(user?.branch || "");
+    const [course, setCourse] = useState(user?.course || "");
     const [semester, setSemester] = useState(user?.semester || "");
     const [mobileNo, setMobileNo] = useState(user?.mobileNo || "");
 
-    const isProfileComplete = user && user.regNo && user.branch && user.semester && user.mobileNo;
+    const isProfileComplete = user && user.regNo && user.branch && user.course && user.semester && user.mobileNo;
     const [isEditingProfile, setIsEditingProfile] = useState(!isProfileComplete);
     const previousSessionIdRef = useRef(null);
     const hasBootstrappedSessionRef = useRef(false);
@@ -133,6 +135,7 @@ export default function StudentDashboard() {
         setName(user?.name || "");
         setRegNo(user?.regNo || "");
         setBranch(user?.branch || "");
+        setCourse(user?.course || "");
         setSemester(user?.semester || "");
         setMobileNo(user?.mobileNo || "");
     }, [user]);
@@ -386,7 +389,7 @@ export default function StudentDashboard() {
     async function handleProfileUpdate(e) {
         e.preventDefault();
         try {
-            await updateProfile({ name, regNo, branch, semester, mobileNo });
+            await updateProfile({ name, regNo, branch, course, semester, mobileNo });
             setIsEditingProfile(false);
             toast.success("Profile updated");
         } catch (err) {
@@ -818,7 +821,7 @@ export default function StudentDashboard() {
                             {[
                                 { icon: <UserIcon size={16} />, label: "Full Name", value: user?.name || "Not set" },
                                 { icon: <IdentificationCard size={16} />, label: "Registration No.", value: user?.regNo || "Not set" },
-                                { icon: <Buildings size={16} />, label: "Branch", value: user?.branch || "Not set" },
+                                { icon: <Buildings size={16} />, label: "Course & Branch", value: (user?.course && user?.branch) ? `${user.course} - ${user.branch}` : (user?.course || user?.branch || "Not set") },
                                 { icon: <BookBookmark size={16} />, label: "Semester", value: user?.semester || "Not set" },
                                 { icon: <Phone size={16} />, label: "Mobile", value: user?.mobileNo || "Not set" },
                             ].map((item) => (
@@ -847,6 +850,7 @@ export default function StudentDashboard() {
                                             setName(user?.name || "");
                                             setRegNo(user?.regNo || "");
                                             setBranch(user?.branch || "");
+                                            setCourse(user?.course || "");
                                             setSemester(user?.semester || "");
                                             setMobileNo(user?.mobileNo || "");
                                         }}
@@ -860,7 +864,34 @@ export default function StudentDashboard() {
                             <form onSubmit={handleProfileUpdate} className="space-y-3">
                                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Full name" className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]" />
                                 <input type="text" value={regNo} onChange={(e) => setRegNo(e.target.value)} required placeholder="Registration number" className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]" />
-                                <input type="text" value={branch} onChange={(e) => setBranch(e.target.value)} required placeholder="Branch" className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]" />
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="relative">
+                                        <select value={course} onChange={(e) => setCourse(e.target.value)} required className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff] appearance-none pr-10">
+                                            <option value="" disabled>Select Course</option>
+                                            <option value="B.Tech">B.Tech</option>
+                                            <option value="Diploma">Diploma</option>
+                                            <option value="MCA">MCA</option>
+                                            <option value="MBA">MBA</option>
+                                        </select>
+                                        <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-400">
+                                            <CaretDown size={14} weight="bold" />
+                                        </div>
+                                    </div>
+                                    <div className="relative">
+                                        <select value={branch} onChange={(e) => setBranch(e.target.value)} required className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff] appearance-none pr-10">
+                                            <option value="" disabled>Select Branch</option>
+                                            <option value="CSE">CSE</option>
+                                            <option value="Electrical">Electrical</option>
+                                            <option value="Mechanical">Mechanical</option>
+                                            <option value="Civil">Civil</option>
+                                        </select>
+                                        <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-400">
+                                            <CaretDown size={14} weight="bold" />
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div className="grid grid-cols-2 gap-3">
                                     <input type="text" value={semester} onChange={(e) => setSemester(e.target.value)} required placeholder="Semester" className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]" />
                                     <input type="text" value={mobileNo} onChange={(e) => setMobileNo(e.target.value)} required placeholder="Mobile number" className="w-full rounded-[16px] border border-white/8 bg-[#0f1420] px-4 py-3 text-sm text-white outline-none transition focus:border-[#33c3ff]" />
